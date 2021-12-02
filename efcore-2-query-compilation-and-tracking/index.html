@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Minima -->
+  <!-- Hexo theme created by @adisaktijrs -->
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+
+  
+  <title>EFCore查缺补漏（二）：查询</title>
+  
+  <link rel="canonical" href="https://www.90yang.com/efcore-2-query-compilation-and-tracking/">
+  
+  <meta name="description" content="第 20 轮 TechEmpower 评测结果出炉了，ASP.NET Core 的 Plaintext 成绩名列前茅，带着 EFCore 的测试却在 Single query / Multiple queries / Fortunes 中落了下风，成绩远不如 dapper，更不如直接 ado.net">
+  
+  
+  <meta name="author" content="小羊">
+  <meta property="og:site_name" content="小羊儿的心情天空" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="EFCore查缺补漏（二）：查询" />
+  
+  <meta property="og:description" content="第 20 轮 TechEmpower 评测结果出炉了，ASP.NET Core 的 Plaintext 成绩名列前茅，带着 EFCore 的测试却在 Single query / Multiple queries / Fortunes 中落了下风，成绩远不如 dapper，更不如直接 ado.net">
+  
+  <meta property="og:url" content="https://www.90yang.com/efcore-2-query-compilation-and-tracking/" />
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Preload fonts
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="preload" href="../fonts/dm-serif-display-v4-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/inter-v2-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  
+<link rel="stylesheet" href="/css/normalize.css">
+
+  
+<link rel="stylesheet" href="/css/skeleton.css">
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+  
+<link rel="stylesheet" href="/css/prism-dark.css">
+
+  
+<link rel="stylesheet" href="/css/prism-line-numbers.css">
+
+  <!-- User css -->
+  
+  
+<link rel="stylesheet" href="/css/user.css">
+
+  
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="">
+
+  <!-- Custom Theme Color Style
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <style>
+  a:not(.icon) {
+    text-decoration-color: #0FA0CE;
+    background-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 50%,
+      #0FA0CE 50%
+    );
+  }
+  blockquote {
+    border-left: 8px solid #0FA0CE;
+  }
+  .nanobar .bar {
+    background: #0FA0CE;
+  }
+  .button.button-primary:hover,
+  button.button-primary:hover,
+  input[type="submit"].button-primary:hover,
+  input[type="reset"].button-primary:hover,
+  input[type="button"].button-primary:hover,
+  .button.button-primary:focus,
+  button.button-primary:focus,
+  input[type="submit"].button-primary:focus,
+  input[type="reset"].button-primary:focus,
+  input[type="button"].button-primary:focus {
+    background-color: #0FA0CE;
+    border-color: #0FA0CE;
+  }
+  input[type="email"]:focus,
+  input[type="number"]:focus,
+  input[type="search"]:focus,
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="password"]:focus,
+  textarea:focus,
+  select:focus {
+    border: 1px solid #0FA0CE;
+  }
+</style>
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-math@4.0.0/dist/style.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 5.4.0"></head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div>
+
+        <div class="row">
+  <div class="two columns" style="max-width: 50px">
+    <h1 class="mt-2 mode">
+      <div onclick=setDarkMode(true) id="darkBtn">🌑</div>
+      <div onclick=setDarkMode(false) id="lightBtn" class=hidden>☀️</div>
+      <script >
+        if (localStorage.getItem('preferredTheme') == 'dark') {
+          setDarkMode(true)
+        }
+        function setDarkMode(isDark) {
+          var darkBtn = document.getElementById('darkBtn')
+          var lightBtn = document.getElementById('lightBtn')
+          if (isDark) {
+            lightBtn.style.display = "block"
+            darkBtn.style.display = "none"
+            localStorage.setItem('preferredTheme', 'dark');
+          } else {
+            lightBtn.style.display = "none"
+            darkBtn.style.display = "block"
+            localStorage.removeItem('preferredTheme');
+          }
+          document.body.classList.toggle("darkmode");
+        }
+      </script>
+    </h1>
+  </div>
+
+  <div class="six columns ml-1">
+    <h1 class="mt-2" style="font-weight: 700;">
+      小羊儿的心情天空
+    </h1>
+  </div>
+
+  <div class="twelve columns">
+    <div class="row">
+      <div class="nine columns left">
+        <a href="/">我的博客</a>
+        
+          
+          <a target="_blank" rel="noopener" href="https://www.xylab.fun/" class="ml">我的实验</a>
+          
+        
+          
+          <a href="/links" class="ml">友情链接</a>
+          
+        
+      </div>
+    </div>
+    <hr style="margin-bottom: 2.6rem">
+  </div>
+</div>
+
+        <div class="trans">
+            <h2>EFCore查缺补漏（二）：查询</h2>
+  <p class="mbb-2">Feb 15, 2021 由 小羊</p>
+
+  <p>第 20 轮 TechEmpower 评测结果出炉了，<a target="_blank" rel="noopener" href="http://ASP.NET">ASP.NET</a> Core 的 Plaintext 成绩名列前茅，带着 EFCore 的测试却在 Single query / Multiple queries / Fortunes 中落了下风，成绩远不如 dapper，更不如直接 <a target="_blank" rel="noopener" href="http://ado.net">ado.net</a>。</p>
+<p>人人都说 EFCore 性能差，人人都在写性能低的代码……</p>
+<p>EFCore 是如何进行查询的？除了查询语句本身的合理性，EFCore 本身的性能瓶颈又会出现在哪里呢？如何让 EFCore 的查询变得更快呢？</p>
+<p>今天，先从 <code>IQueryable</code> 这个接口说起。</p>
+<h4 id="iqueryable-与-ienumerable"><a class="markdownIt-Anchor" href="#iqueryable-与-ienumerable"></a> IQueryable 与 IEnumerable</h4>
+<p><code>IEnumerable&lt;&gt;</code> 的核心作用是提供一些基础数据通过 <code>GetEnumerator</code> 函数来创建一个 <code>IEnumerator&lt;&gt;</code>。</p>
+<p><code>IEnumerator&lt;&gt;</code> 是一个非常单纯的单向迭代器，你可以像系统自带的集合类那样手动实现一个，也可以你可以通过自己编写 <code>yield return</code> / <code>yield break</code> 语句，让编译器将你的程序控制流和变量状态保存在编译器翻译设计的专有 <code>Enumerator</code> 中。</p>
+<p>除此之外，<code>System.Linq</code> 这个命名空间提供了大量针对 <code>IEnumerable&lt;&gt;</code> 的拓展。这些拓展将 <code>IEnumerator&lt;&gt;</code> 们通过类似于责任链模式的方法组合起来，提供了很多神奇的 LINQ 功能。</p>
+<p>而 <code>IQueryable&lt;&gt;</code> 是什么呢？</p>
+<p><code>IQueryable&lt;&gt;</code> 接口除了实现 <code>IEnumerable&lt;&gt;</code> 以外，还有三个成员</p>
+<ul>
+<li><code>Expression</code>：保存了一个表达式树</li>
+<li><code>ElementType</code>：这个 <code>IQueryable&lt;&gt;</code> 的返回类型</li>
+<li><code>Provider</code>：一个 <code>IQueryProvider</code> 实例对象</li>
+</ul>
+<p>而 <code>IQueryProvider</code> 则有这样几个成员函数</p>
+<ul>
+<li><code>IQueryable&lt;&gt; CreateQuery(Expression expression)</code> 根据传入的表达式树构建一个 <code>IQueryable</code> 对象</li>
+<li><code>TResult Execute(Expression expression)</code> 执行这个表达式，获得对应结果</li>
+</ul>
+<p>再参考 <code>System.Linq.Queryable</code> 对 <code>IQueryable&lt;&gt;</code> 的拓展函数的实现</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// System.Linq.Queryable</span>
+<span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token return-type class-name"><span class="token keyword">int</span></span> <span class="token generic-method"><span class="token function">Count</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token keyword">this</span> <span class="token class-name">IQueryable<span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span> source<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>source <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token keyword">throw</span> Error<span class="token punctuation">.</span><span class="token function">ArgumentNull</span><span class="token punctuation">(</span><span class="token keyword">nameof</span><span class="token punctuation">(</span>source<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> source<span class="token punctuation">.</span>Provider<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">Execute</span><span class="token generic class-name"><span class="token punctuation">&lt;</span><span class="token keyword">int</span><span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+        Expression<span class="token punctuation">.</span><span class="token function">Call</span><span class="token punctuation">(</span>
+            <span class="token keyword">null</span><span class="token punctuation">,</span>
+            CachedReflectionInfo<span class="token punctuation">.</span><span class="token function">Count_TSource_1</span><span class="token punctuation">(</span><span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">TSource</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            source<span class="token punctuation">.</span>Expression
+        <span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token return-type class-name">IQueryable<span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">Where</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token keyword">this</span> <span class="token class-name">IQueryable<span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span> source<span class="token punctuation">,</span> <span class="token class-name">Expression<span class="token punctuation">&lt;</span>Func<span class="token punctuation">&lt;</span>TSource<span class="token punctuation">,</span> <span class="token keyword">bool</span><span class="token punctuation">></span><span class="token punctuation">></span></span> predicate<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>source <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token keyword">throw</span> Error<span class="token punctuation">.</span><span class="token function">ArgumentNull</span><span class="token punctuation">(</span><span class="token keyword">nameof</span><span class="token punctuation">(</span>source<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>predicate <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token keyword">throw</span> Error<span class="token punctuation">.</span><span class="token function">ArgumentNull</span><span class="token punctuation">(</span><span class="token keyword">nameof</span><span class="token punctuation">(</span>predicate<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> source<span class="token punctuation">.</span>Provider<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">CreateQuery</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+        Expression<span class="token punctuation">.</span><span class="token function">Call</span><span class="token punctuation">(</span>
+            <span class="token keyword">null</span><span class="token punctuation">,</span>
+            CachedReflectionInfo<span class="token punctuation">.</span><span class="token function">Where_TSource_2</span><span class="token punctuation">(</span><span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">TSource</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            source<span class="token punctuation">.</span>Expression<span class="token punctuation">,</span> Expression<span class="token punctuation">.</span><span class="token function">Quote</span><span class="token punctuation">(</span>predicate<span class="token punctuation">)</span>
+        <span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>那么我们有如下结论</p>
+<ul>
+<li><code>IQueryable&lt;&gt;</code> 保存着一个查询表达式树和一个 <code>IQueryProvider</code></li>
+<li><code>IQueryProvider</code> 支撑着 <code>IQueryable&lt;&gt;</code> 的创建和查询执行</li>
+<li><code>IQueryable&lt;&gt;</code> 的拓展函数们仅仅是将表达式树拼接成与函数调用相同形态的表达式</li>
+</ul>
+<p><img src="queryable-expression.png" alt="" /></p>
+<p>而在 EFCore 中，完成这样功能的类则是 <code>EntityQueryable&lt;&gt;</code> 和 <code>EntityQueryProvider</code>。后者在 EFCore 的依赖注入容器中是 Scoped 服务 <code>IAsyncQueryProvider</code> 的实现，完成所有的 <code>IQueryable&lt;&gt;</code> 的创建，并将所有的 <code>Execute</code> 和 <code>ExecuteAsync</code> 的请求转发给 <code>IQueryCompiler</code> 这一服务。</p>
+<p>而 <code>IQueryCompiler</code> 中的执行代码大约是这样的</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// Microsoft.EntityFrameworkCore.Query.Internal.QueryCompiler</span>
+<span class="token keyword">public</span> <span class="token keyword">virtual</span> <span class="token return-type class-name">TResult</span> <span class="token generic-method"><span class="token function">Execute</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">Expression</span> query<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    Check<span class="token punctuation">.</span><span class="token function">NotNull</span><span class="token punctuation">(</span>query<span class="token punctuation">,</span> <span class="token keyword">nameof</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> queryContext <span class="token operator">=</span> _queryContextFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    query <span class="token operator">=</span> <span class="token function">ExtractParameters</span><span class="token punctuation">(</span>query<span class="token punctuation">,</span> queryContext<span class="token punctuation">,</span> _logger<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> compiledQuery
+        <span class="token operator">=</span> _compiledQueryCache
+            <span class="token punctuation">.</span><span class="token function">GetOrAddQuery</span><span class="token punctuation">(</span>
+                _compiledQueryCacheKeyGenerator<span class="token punctuation">.</span><span class="token function">GenerateCacheKey</span><span class="token punctuation">(</span>query<span class="token punctuation">,</span> <span class="token keyword">async</span><span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+                <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token generic-method"><span class="token function">CompileQueryCore</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>_database<span class="token punctuation">,</span> query<span class="token punctuation">,</span> _model<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> <span class="token function">compiledQuery</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>其中</p>
+<ul>
+<li><code>_compiledQueryCache</code> 是一个由 <code>IMemoryCache</code> 驱动的缓存</li>
+<li><code>_compiledQueryCacheKeyGenerator</code> 是将该表达式与数据库模型、数据库驱动等信息的 Hash 值合并产生一个对应的 <code>QueryCacheKey</code></li>
+<li><code>_queryContextFactory</code> 用于生成一个 <code>QueryContext</code> 实例</li>
+<li><code>ExtractParameters</code> 将查询表达式中的闭包变量等计算完毕并加入 <code>queryContext</code> 实例</li>
+<li><code>compiledQuery</code> 是一个 <code>Func&lt;QueryContext, TResult&gt;</code> 实例，又称为 <code>QueryExecutor</code></li>
+</ul>
+<p>而其中 <code>QueryContext</code> 支持和提供</p>
+<ul>
+<li>并行检测（也就是 EFCore 一个上下文实例只能有一个正在执行的查询语句的基石）</li>
+<li>执行逻辑（例如失败重试）</li>
+<li>异步任务的 CancellationToken</li>
+<li>各种日志输出</li>
+<li>查询参数的添加和读取</li>
+<li>实体跟踪和状态管理</li>
+</ul>
+<p>在关系型数据库驱动中，<code>RelationalQueryContext</code> 另外附加</p>
+<ul>
+<li>数据库连接</li>
+<li>生成 SQL 片段的工厂类</li>
+</ul>
+<p>我们每次要执行一个查询，就要先在这个内存缓存中查找是否已经有编译好的执行语句；而这个缓存的键需要利用表达式树来生成。如果我们的查询过于复杂，则会对缓存带来一定的性能负担。</p>
+<h4 id="expression-树与-efcompilequery"><a class="markdownIt-Anchor" href="#expression-树与-efcompilequery"></a> Expression 树与 EF.CompileQuery</h4>
+<p>我们稍后讨论 <code>CompileQueryCore</code> 的作用。先来讨论一下表达式树吧。</p>
+<p>众所周知，EFCore 的强类型特性是由表达式树这个玩意带来的。</p>
+<p>编译器为了减少人为构建表达式树的负担，提供了语法糖，让我们可以像写 Lambda 函数一样书写表达式。然而编译器并没有开洞，而是实打实的进行了表达式树的构建。</p>
+<p><img src="exp-tree-il.png" alt="" /></p>
+<p>可以在图上看到，我们经常执行的根据 ID 查找一个实体的操作会产生如此之多的中间代码。甚至，蓝框内还有闭包变量捕捉的步骤。</p>
+<p>如果我们的查询很简单，那似乎也没什么……如果我们要执行一个超级复杂的查询，又要 join 好几个表又要 concat 还要 group 呢？</p>
+<p>表达式树毕竟是表达式树，为了创建表达式树，这么多中间代码总是需要执行的。</p>
+<p>有没有办法直接跳过这么多表达式树的构建呢？有的。看 <code>EF.CompileQuery</code>。其中的一个典型函数</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token return-type class-name">Func<span class="token punctuation">&lt;</span>TContext<span class="token punctuation">,</span> IEnumerable<span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span><span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">CompileQuery</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TContext<span class="token punctuation">,</span> TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token class-name">Expression<span class="token punctuation">&lt;</span>Func<span class="token punctuation">&lt;</span>TContext<span class="token punctuation">,</span> IQueryable<span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span><span class="token punctuation">></span><span class="token punctuation">></span></span> queryExpression<span class="token punctuation">)</span>
+    <span class="token keyword">where</span> <span class="token class-name">TContext</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token class-name">DbContext</span></span>
+    <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">CompiledQuery<span class="token punctuation">&lt;</span>TContext<span class="token punctuation">,</span> IEnumerable<span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span><span class="token punctuation">></span></span><span class="token punctuation">(</span>queryExpression<span class="token punctuation">)</span><span class="token punctuation">.</span>Execute<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这里实际上是构建了一个 <code>CompileQuery&lt;,&gt;</code> 类型的对象，并且将他的 Execute 函数打包成委托返回。</p>
+<p>你可能会问，这不是还需要表达式树吗？</p>
+<p>那么请回顾官方文档中这个函数的使用场景：将该函数返回的委托放在 静态字段 或者 单例的成员变量 中。也就是说，对于某个参数设计好了的函数，这个 <code>EF.CompileQuery</code> 函数理应只执行一次。</p>
+<p>CompiledQuery 对象在第一次执行时，通过接下来的代码创建一个 <code>Func&lt;QueryContext, TResult&gt;</code> 委托；在这个委托中，本次执行产生的 SQL 语句表达式树、SQL 语句文本会被缓存下来；在第二次执行的时候，就跳过对表达式树的处理，直接执行上面那个委托，甚至在特定情况下快进到直接执行 SQL 语句文本了。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// Microsoft.EntityFrameworkCore.Query.Internal.QueryCompiler</span>
+<span class="token keyword">public</span> <span class="token keyword">virtual</span> <span class="token return-type class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> TResult<span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">CreateCompiledQuery</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">Expression</span> query<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    Check<span class="token punctuation">.</span><span class="token function">NotNull</span><span class="token punctuation">(</span>query<span class="token punctuation">,</span> <span class="token keyword">nameof</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    query <span class="token operator">=</span> <span class="token function">ExtractParameters</span><span class="token punctuation">(</span>query<span class="token punctuation">,</span> _queryContextFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> _logger<span class="token punctuation">,</span> <span class="token named-parameter punctuation">parameterize</span><span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> <span class="token generic-method"><span class="token function">CompileQueryCore</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>_database<span class="token punctuation">,</span> query<span class="token punctuation">,</span> _model<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>是不是感觉会快上很多？我们可以直接获得这个委托，而不是通过字典查找，可以节省很多时间；而且不涉及查询语句缓存，不会存在系统内其他查询太多、某些不常用查询被定期清理掉的情况。</p>
+<p>个人认为，在需要比较高性能的同时，又不是直接执行 SQL 语句文本的情况下，这样两种情况可以尝试使用 <code>EF.CompileQuery</code>：</p>
+<ul>
+<li>查询表达式树太过复杂</li>
+<li>高频访问路径上的查询</li>
+</ul>
+<p>另外，如果查询是只读，不涉及到实体的增删改，此时完全可以考虑到使用 <code>AsNoTracking</code> 这类拓展，将实体更改追踪关掉，在此基础上可以再提高一点性能，大约能与 Dapper 和 <a target="_blank" rel="noopener" href="http://ADO.NET">ADO.NET</a> 直接读取数据的性能比肩（没有测试数据）。</p>
+<p>笔者在阅读网上现存的对 <code>EF.CompileQuery</code> 的介绍中，有读到过一篇说这个函数不接受 <code>ToList</code> 和 <code>ToListAsync</code> 之类的函数，说这个功能支持不完全。</p>
+<p><code>ToList</code> 是 <code>IEnumerable&lt;&gt;</code> 的拓展方法，并不是 <code>IQueryable&lt;&gt;</code> 的拓展方法。也就是说，<code>ToList</code> 实际上是将之前的 <code>IQueryable&lt;&gt;</code> 进行了 <code>foreach</code> 枚举，并手动构建 <code>List&lt;&gt;</code> 对象，所以说不支持似乎情有可原。</p>
+<p>而 <code>ToListAsync</code> 是 EFCore 的拓展方法。实际上，他的代码是这样的：</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">async</span> <span class="token return-type class-name">Task<span class="token punctuation">&lt;</span>List<span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span><span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">ToListAsync</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token keyword">this</span> <span class="token class-name">IQueryable<span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span> source<span class="token punctuation">,</span>
+    <span class="token class-name">CancellationToken</span> cancellationToken <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> list <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">List<span class="token punctuation">&lt;</span>TSource<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">await</span> <span class="token keyword">foreach</span> <span class="token punctuation">(</span><span class="token class-name"><span class="token keyword">var</span></span> element <span class="token keyword">in</span> source<span class="token punctuation">.</span><span class="token function">AsAsyncEnumerable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">WithCancellation</span><span class="token punctuation">(</span>cancellationToken<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        list<span class="token punctuation">.</span><span class="token function">Add</span><span class="token punctuation">(</span>element<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">return</span> list<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>对，利用了 <code>IAsyncEnumerable</code> 和 <code>await foreach</code> 来达到异步查询的目的。所以，当我们需要使用 <code>ToList</code>、<code>ToArray</code>、<code>ToDictionary</code> 类似功能的时候，使用那个 <code>Func&lt;TContext, IAsyncEnumerable&lt;TResult&gt;&gt;</code> 然后手动构架集合就好了。</p>
+<p>这里再简单给几个使用这个函数使用的例子吧。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">readonly</span> <span class="token class-name">Func<span class="token punctuation">&lt;</span>MyContext<span class="token punctuation">,</span> <span class="token keyword">int</span><span class="token punctuation">,</span> Task<span class="token punctuation">&lt;</span>User<span class="token punctuation">></span><span class="token punctuation">></span></span> _findUser <span class="token operator">=</span>
+    EF<span class="token punctuation">.</span><span class="token function">CompileAsyncQuery</span><span class="token punctuation">(</span>
+        <span class="token punctuation">(</span><span class="token class-name">MyContext</span> context<span class="token punctuation">,</span> <span class="token class-name"><span class="token keyword">int</span></span> id<span class="token punctuation">)</span> <span class="token operator">=></span> context<span class="token punctuation">.</span>Users<span class="token punctuation">.</span><span class="token function">Where</span><span class="token punctuation">(</span>u <span class="token operator">=></span> u<span class="token punctuation">.</span>Id <span class="token operator">==</span> id<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">FirstOrDefault</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">readonly</span> <span class="token class-name">Func<span class="token punctuation">&lt;</span>MyContext<span class="token punctuation">,</span> IAsyncEnumerable<span class="token punctuation">&lt;</span>UserDto<span class="token punctuation">></span><span class="token punctuation">></span></span> _listUsers <span class="token operator">=</span>
+    EF<span class="token punctuation">.</span><span class="token function">CompileAsyncQuery</span><span class="token punctuation">(</span>
+        <span class="token punctuation">(</span><span class="token class-name">MyContext</span> context<span class="token punctuation">)</span> <span class="token operator">=></span> context<span class="token punctuation">.</span>Users<span class="token punctuation">.</span><span class="token function">Select</span><span class="token punctuation">(</span>u <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">UserDto</span><span class="token punctuation">(</span>u<span class="token punctuation">.</span>Id<span class="token punctuation">,</span> u<span class="token punctuation">.</span>Name<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">readonly</span> <span class="token class-name">Func<span class="token punctuation">&lt;</span>MyContext<span class="token punctuation">,</span> DateTimeOffset<span class="token punctuation">,</span> CancellationToken<span class="token punctuation">,</span> Task<span class="token punctuation">&lt;</span><span class="token keyword">int</span><span class="token punctuation">></span><span class="token punctuation">></span></span> _countUsers <span class="token operator">=</span>
+    EF<span class="token punctuation">.</span><span class="token function">CompileAsyncQuery</span><span class="token punctuation">(</span>
+        <span class="token punctuation">(</span><span class="token class-name">MyContext</span> context<span class="token punctuation">,</span> <span class="token class-name">DateTimeOffset</span> time<span class="token punctuation">,</span> <span class="token class-name">CancellationToken</span> _<span class="token punctuation">)</span> <span class="token operator">=></span> context<span class="token punctuation">.</span>Users<span class="token punctuation">.</span><span class="token function">Where</span><span class="token punctuation">(</span>u <span class="token operator">=></span> u<span class="token punctuation">.</span>RegisterTime <span class="token operator">&lt;</span> time<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Count</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">public</span> <span class="token keyword">async</span> <span class="token return-type class-name">Task</span> <span class="token function">DoAsync</span><span class="token punctuation">(</span><span class="token class-name">CancellationToken</span> cancellationToken <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">using</span> <span class="token class-name"><span class="token keyword">var</span></span> context <span class="token operator">=</span> <span class="token function">CreateContext</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> user <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">_findUser</span><span class="token punctuation">(</span>context<span class="token punctuation">,</span> <span class="token number">233</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> list <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">List<span class="token punctuation">&lt;</span>UserDto<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">await</span> <span class="token keyword">foreach</span> <span class="token punctuation">(</span><span class="token class-name"><span class="token keyword">var</span></span> item <span class="token keyword">in</span> <span class="token function">_listUsers</span><span class="token punctuation">(</span>context<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">WithCancellation</span><span class="token punctuation">(</span>cancellationToken<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        list<span class="token punctuation">.</span><span class="token function">Add</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> count <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">_countUsers</span><span class="token punctuation">(</span>context<span class="token punctuation">,</span> DateTimeOffset<span class="token punctuation">.</span>Now<span class="token punctuation">.</span><span class="token function">AddDays</span><span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> cancellationToken<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>可以创建带有 CancellationToken 的异步版本。同步版本就不用 CancellationToken 了。</p>
+<h4 id="真正的查询编译与执行"><a class="markdownIt-Anchor" href="#真正的查询编译与执行"></a> 真正的查询编译与执行</h4>
+<p>我们需要结合 SqlServer 这个关系型数据库解释所谓的 <code>QueryExecutor</code>。其他关系型数据库的大致构建过程其实差不多，非关系型的 InMemory 和 Cosmos 的驱动用的少就不解释了哈。</p>
+<p>以 <code>context.Set&lt;User&gt;().Where(u =&gt; u.Id != id).ToList()</code> 这一查询的翻译为例。</p>
+<p>我们可以发现，这个查询的 <code>QueryExecutor</code> 是 <code>Func&lt;QueryContext, IEnumerable&lt;User&gt;&gt;</code>，传入 <code>queryContext</code> 会返回一个 <code>IEnumerable</code> 对象。</p>
+<p>在 EFCore 3.1 中，返回的是 <code>QueryingEnumerable</code>；在 EFCore 5.0 中，返回 <code>SingleQueryingEnumerable</code> 或者 <code>SplitQueryingEnumerable</code> 或者 <code>FromSqlQueryingEnumerable</code>。5.0 的改动是因为带来了 <code>AsSplitQuery</code> 这个拓展，避免笛卡尔爆炸的问题。</p>
+<p>先跳过 <code>QueryExecutor</code> 函数体，看看返回值。</p>
+<p>以 <code>SingleQueryingEnumerable</code> 为例，我们看到它实现了 <code>IEnumerable</code> 和 <code>IAsyncEnumerable</code>。以下是 <code>GetEnumerator</code> 结果的 <code>MoveNext</code> 和 <code>InitializeReader</code> 的实现。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">private</span> <span class="token return-type class-name"><span class="token keyword">bool</span></span> <span class="token function">InitializeReader</span><span class="token punctuation">(</span><span class="token class-name">DbContext</span> _<span class="token punctuation">,</span> <span class="token class-name"><span class="token keyword">bool</span></span> result<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    EntityFrameworkEventSource<span class="token punctuation">.</span>Log<span class="token punctuation">.</span><span class="token function">QueryExecuting</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> relationalCommand <span class="token operator">=</span> _relationalCommandCache<span class="token punctuation">.</span><span class="token function">GetRelationalCommand</span><span class="token punctuation">(</span>_relationalQueryContext<span class="token punctuation">.</span>ParameterValues<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    _dataReader <span class="token operator">=</span> relationalCommand<span class="token punctuation">.</span><span class="token function">ExecuteReader</span><span class="token punctuation">(</span>
+        <span class="token keyword">new</span> <span class="token constructor-invocation class-name">RelationalCommandParameterObject</span><span class="token punctuation">(</span>
+            _relationalQueryContext<span class="token punctuation">.</span>Connection<span class="token punctuation">,</span>
+            _relationalQueryContext<span class="token punctuation">.</span>ParameterValues<span class="token punctuation">,</span>
+            _relationalCommandCache<span class="token punctuation">.</span>ReaderColumns<span class="token punctuation">,</span>
+            _relationalQueryContext<span class="token punctuation">.</span>Context<span class="token punctuation">,</span>
+            _relationalQueryContext<span class="token punctuation">.</span>CommandLogger<span class="token punctuation">,</span>
+            _detailedErrorsEnabled<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    _resultCoordinator <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">SingleQueryResultCoordinator</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    _relationalQueryContext<span class="token punctuation">.</span><span class="token function">InitializeStateManager</span><span class="token punctuation">(</span>_standAloneStateManager<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> result<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">public</span> <span class="token return-type class-name"><span class="token keyword">bool</span></span> <span class="token function">MoveNext</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">try</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">using</span> <span class="token punctuation">(</span>_relationalQueryContext<span class="token punctuation">.</span>ConcurrencyDetector<span class="token punctuation">.</span><span class="token function">EnterCriticalSection</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>_dataReader <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                _relationalQueryContext<span class="token punctuation">.</span>ExecutionStrategyFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+                    <span class="token punctuation">.</span><span class="token function">Execute</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">,</span> InitializeReader<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> hasNext <span class="token operator">=</span> _resultCoordinator<span class="token punctuation">.</span>HasNext <span class="token operator">??</span> _dataReader<span class="token punctuation">.</span><span class="token function">Read</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            Current <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">;</span>
+
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>hasNext<span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+                <span class="token punctuation">&#123;</span>
+                    _resultCoordinator<span class="token punctuation">.</span>ResultReady <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+                    _resultCoordinator<span class="token punctuation">.</span>HasNext <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+                    Current <span class="token operator">=</span> <span class="token function">_shaper</span><span class="token punctuation">(</span>
+                        _relationalQueryContext<span class="token punctuation">,</span> _dataReader<span class="token punctuation">.</span>DbDataReader<span class="token punctuation">,</span> _resultCoordinator<span class="token punctuation">.</span>ResultContext<span class="token punctuation">,</span>
+                        _resultCoordinator<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    <span class="token keyword">if</span> <span class="token punctuation">(</span>_resultCoordinator<span class="token punctuation">.</span>ResultReady<span class="token punctuation">)</span>
+                    <span class="token punctuation">&#123;</span>
+                        <span class="token comment">// We generated a result so null out previously stored values</span>
+                        _resultCoordinator<span class="token punctuation">.</span>ResultContext<span class="token punctuation">.</span>Values <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+                        <span class="token keyword">break</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span>
+
+                    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>_dataReader<span class="token punctuation">.</span><span class="token function">Read</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+                    <span class="token punctuation">&#123;</span>
+                        _resultCoordinator<span class="token punctuation">.</span>HasNext <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+                        <span class="token comment">// Enumeration has ended, materialize last element</span>
+                        _resultCoordinator<span class="token punctuation">.</span>ResultReady <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+                        Current <span class="token operator">=</span> <span class="token function">_shaper</span><span class="token punctuation">(</span>
+                            _relationalQueryContext<span class="token punctuation">,</span> _dataReader<span class="token punctuation">.</span>DbDataReader<span class="token punctuation">,</span> _resultCoordinator<span class="token punctuation">.</span>ResultContext<span class="token punctuation">,</span>
+                            _resultCoordinator<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+                        <span class="token keyword">break</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+
+            <span class="token keyword">return</span> hasNext<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> exception<span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        _queryLogger<span class="token punctuation">.</span><span class="token function">QueryIterationFailed</span><span class="token punctuation">(</span>_contextType<span class="token punctuation">,</span> exception<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">throw</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>其中</p>
+<ul>
+<li><code>ExecutionStrategy</code> 处理查询重试之类的执行逻辑</li>
+<li><code>_relationalCommandCache</code> 保存了翻译的 SQL 表达式和语句文本</li>
+<li><code>_dataReader</code> 保存着 <a target="_blank" rel="noopener" href="http://ADO.NET">ADO.NET</a> 中常用的 <code>DbCommand</code>，<code>DbDataReader</code>，<code>DbConnection</code> 等工具，是的，底层读取库就是 <a target="_blank" rel="noopener" href="http://ADO.NET">ADO.NET</a></li>
+<li><code>_resultCoordinator</code> 将 <a target="_blank" rel="noopener" href="http://ADO.NET">ADO.NET</a> 读取的一行结果存入 <code>ResultContext</code>，然后当一条记录完整读取以后（如果有集合 Include，则是集合整个读取完成），由 <code>_shaper</code> 转换成最终实体</li>
+</ul>
+<p>这个 <code>QueryingEnumerable</code> 是如何构建出来的？终于到了喜闻乐见的 <code>CompileQueryCore</code> 函数讲解了。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// Microsoft.EntityFrameworkCore.Query.Internal.QueryCompiler</span>
+<span class="token keyword">public</span> <span class="token keyword">virtual</span> <span class="token return-type class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> TResult<span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">CompileQueryCore</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token class-name">IDatabase</span> database<span class="token punctuation">,</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token class-name">Expression</span> query<span class="token punctuation">,</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token class-name">IModel</span> model<span class="token punctuation">,</span>
+    <span class="token class-name"><span class="token keyword">bool</span></span> <span class="token keyword">async</span><span class="token punctuation">)</span>
+    <span class="token operator">=></span> database<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">CompileQuery</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>query<span class="token punctuation">,</span> <span class="token keyword">async</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+<span class="token comment">// Microsoft.EntityFrameworkCore.Storage.Database</span>
+<span class="token keyword">public</span> <span class="token keyword">virtual</span> <span class="token return-type class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> TResult<span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">CompileQuery</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">Expression</span> query<span class="token punctuation">,</span> <span class="token class-name"><span class="token keyword">bool</span></span> <span class="token keyword">async</span><span class="token punctuation">)</span>
+    <span class="token operator">=></span> Dependencies<span class="token punctuation">.</span>QueryCompilationContextFactory
+        <span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token keyword">async</span><span class="token punctuation">)</span>
+        <span class="token punctuation">.</span><span class="token generic-method"><span class="token function">CreateQueryExecutor</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+<span class="token comment">// Microsoft.EntityFrameworkCore.Query.QueryCompilationContext</span>
+<span class="token keyword">public</span> <span class="token keyword">virtual</span> <span class="token return-type class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> TResult<span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">CreateQueryExecutor</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TResult<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">Expression</span> query<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    query <span class="token operator">=</span> _queryTranslationPreprocessorFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Process</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment">// Convert EntityQueryable to ShapedQueryExpression</span>
+    query <span class="token operator">=</span> _queryableMethodTranslatingExpressionVisitorFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Visit</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    query <span class="token operator">=</span> _queryTranslationPostprocessorFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Process</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// Inject actual entity materializer</span>
+    <span class="token comment">// Inject tracking</span>
+    query <span class="token operator">=</span> _shapedQueryCompilingExpressionVisitorFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Visit</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">// If any additional parameters were added during the compilation phase (e.g. entity equality ID expression),</span>
+    <span class="token comment">// wrap the query with code adding those parameters to the query context</span>
+    query <span class="token operator">=</span> <span class="token function">InsertRuntimeParameters</span><span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> queryExecutorExpression <span class="token operator">=</span> Expression<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">Lambda</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> TResult<span class="token punctuation">></span><span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+        query<span class="token punctuation">,</span>
+        QueryContextParameter<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">try</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> queryExecutorExpression<span class="token punctuation">.</span><span class="token function">Compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">finally</span>
+    <span class="token punctuation">&#123;</span>
+        Logger<span class="token punctuation">.</span><span class="token function">QueryExecutionPlanned</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token constructor-invocation class-name">ExpressionPrinter</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> queryExecutorExpression<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>嗯，这玩意……老套娃人了。</p>
+<p>这里的代码其实挺抽象的。另外不要被那个 <code>.Compile()</code> 吓到，那个只是利用表达式树把动态构建的函数体生成为真正的委托对象而已，我们需要在它 Compile 之前看到这个函数体内部究竟是什么。</p>
+<p>至于查询翻译过程本身的设计，这次先不介绍。</p>
+<p>依然是上面那个例子，调试 EFCore 源代码设断点，可以看到，此时 <code>queryExecutor</code> 是这样的：</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">SingleQueryingEnumerable<span class="token punctuation">&lt;</span>User<span class="token punctuation">></span></span><span class="token punctuation">(</span>
+    <span class="token named-parameter punctuation">relationalQueryContext</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>RelationalQueryContext<span class="token punctuation">)</span>queryContext<span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">relationalCommandCache</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>RelationalCommandCache<span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">shaper</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>Func<span class="token operator">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> ResultContext<span class="token punctuation">,</span> SingleQueryResultCoordinator<span class="token punctuation">,</span> User<span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">contextType</span><span class="token punctuation">:</span> <span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">MyContext</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">standAloneStateManager</span><span class="token punctuation">:</span> False<span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">detailedErrorsEnabled</span><span class="token punctuation">:</span> False<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>在刚才的过程中， <code>InsertRuntimeParameters</code> 并没有实际发挥作用，因为闭包捕捉的 <code>id</code> 变量早在 <code>QueryCompiler.ExtractParameters</code> 时就变为了 <code>ParameterExpression</code> 并被加入 <code>QueryContext</code>，而并没有在查询翻译过程中使用任何“运行时参数”。</p>
+<p>在不使用导航属性的情况下，试了几个常见的例子，基本上都不会触发“运行时参数”。笔者找到了这样的两个例子：</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">User</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">public</span> <span class="token return-type class-name"><span class="token keyword">int</span></span> Id <span class="token punctuation">&#123;</span> <span class="token keyword">get</span><span class="token punctuation">;</span> <span class="token keyword">set</span><span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">Tenant</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">public</span> <span class="token return-type class-name"><span class="token keyword">int</span></span> Id <span class="token punctuation">&#123;</span> <span class="token keyword">get</span><span class="token punctuation">;</span> <span class="token keyword">set</span><span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+    <span class="token keyword">public</span> <span class="token return-type class-name">ICollection<span class="token punctuation">&lt;</span>User<span class="token punctuation">></span></span> Users <span class="token punctuation">&#123;</span> <span class="token keyword">get</span><span class="token punctuation">;</span> <span class="token keyword">set</span><span class="token punctuation">;</span> <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+
+modelBuilder<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">Entity</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>Tenant<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>entity <span class="token operator">=></span> entity<span class="token punctuation">.</span><span class="token function">HasMany</span><span class="token punctuation">(</span>e <span class="token operator">=></span> e<span class="token punctuation">.</span>Users<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">WithOne</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name"><span class="token keyword">var</span></span> uu <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">User</span> <span class="token punctuation">&#123;</span> <span class="token comment">/* .. */</span> <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+context<span class="token punctuation">.</span>Users<span class="token punctuation">.</span><span class="token function">Where</span><span class="token punctuation">(</span>u <span class="token operator">=></span> u<span class="token punctuation">.</span><span class="token function">Equals</span><span class="token punctuation">(</span>uu<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">ToList</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+context<span class="token punctuation">.</span>Tenants<span class="token punctuation">.</span><span class="token function">Where</span><span class="token punctuation">(</span>t <span class="token operator">=></span> t<span class="token punctuation">.</span>Users<span class="token punctuation">.</span><span class="token function">Contains</span><span class="token punctuation">(</span>uu<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">ToList</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>此时 <code>queryExecutor</code> 是这样的：</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp">queryContext<span class="token punctuation">.</span><span class="token function">AddParameter</span><span class="token punctuation">(</span>
+    <span class="token string">"__entity_equality_uu_0_Id"</span><span class="token punctuation">,</span>
+    <span class="token keyword">new</span> <span class="token constructor-invocation class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> <span class="token keyword">int</span><span class="token punctuation">?</span><span class="token punctuation">></span></span><span class="token punctuation">(</span>
+        queryContext <span class="token operator">=></span> <span class="token function">ParameterValueExtractor</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> <span class="token string">"__uu_0"</span><span class="token punctuation">,</span> IProperty<span class="token punctuation">)</span>
+    <span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Invoke</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">SingleQueryingEnumerable<span class="token punctuation">&lt;</span>User<span class="token punctuation">></span></span><span class="token punctuation">(</span>
+    <span class="token named-parameter punctuation">relationalQueryContext</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>RelationalQueryContext<span class="token punctuation">)</span>queryContext<span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">relationalCommandCache</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>RelationalCommandCache<span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">shaper</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>Func<span class="token operator">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> ResultContext<span class="token punctuation">,</span> SingleQueryResultCoordinator<span class="token punctuation">,</span> User<span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">contextType</span><span class="token punctuation">:</span> <span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">MyContext</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">standAloneStateManager</span><span class="token punctuation">:</span> False<span class="token punctuation">,</span>
+    <span class="token named-parameter punctuation">detailedErrorsEnabled</span><span class="token punctuation">:</span> False<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>也就是说，所谓“运行时参数”是 SQL 语句执行时的参数，但是，要想读取它的值，就需要反过来从 <code>QueryContext</code> 中读取。为什么会在 <code>QueryContext</code> 中呢？因为之前 <code>QueryCompiler.ExtractParameters</code> 的时候，这个对象的整体被加入了 <code>QueryContext</code> 中，而不是被直接计算好。对于需要判断实体包含和实体相等的情况，就需要用到这种奇怪的方法。</p>
+<p>现在问题来了：<code>relationalCommandCache</code> 和 <code>shaper</code> 是在何时构建好的？</p>
+<p>前者保存着翻译完成的 SQL 表达式树的对象，他会在创建 <code>DbCommand</code> 对象的时候，调用 <code>QuerySqlGenerator</code> 将表达式树拍平成为 SQL 语句文本。</p>
+<p>这里我们来研究一下后者这个 <code>shaper</code> 委托。</p>
+<p>这个委托也是由 EFCore 动态创建的，但是这个委托的具体实现是和数据库类型有关系的。在关系型数据库中，由 <code>RelationalShapedQueryCompilingExpressionVisitor</code> 进行创建。</p>
+<p>对于刚才直接拿到实体的情况，它产生的代码是这样的</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// SELECT [u].[Id], [u].[Name], [u].[RegisterTime], [u].[TenantId]</span>
+<span class="token comment">// FROM [Users] AS [u]</span>
+
+<span class="token return-type class-name">User</span> <span class="token function">Shape</span><span class="token punctuation">(</span><span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span> <span class="token class-name">DbDataReader</span> dataReader<span class="token punctuation">,</span> <span class="token class-name">ResultContext</span> resultContext<span class="token punctuation">,</span> <span class="token class-name">SingleQueryResultCoordinator</span> resultCoordinator<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name">User</span> var1 <span class="token operator">=</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token class-name">IEntityType</span> entityType1<span class="token punctuation">;</span>
+
+        <span class="token class-name"><span class="token keyword">var</span></span> materializationContext1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">MaterializationContext</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">valueBuffer</span><span class="token punctuation">:</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">context</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">.</span>Context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token class-name">User</span> instance1 <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+        <span class="token class-name">InternalEntityEntry</span> entry1 <span class="token operator">=</span> queryContext<span class="token punctuation">.</span><span class="token function">TryGetEntry</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">key</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token named-parameter punctuation">IKey</span><span class="token punctuation">:</span> <span class="token string">"Key: User.Id PK"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">keyValues</span><span class="token punctuation">:</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">throwOnNullKey</span><span class="token punctuation">:</span> True<span class="token punctuation">,</span>
+            <span class="token keyword">out</span> <span class="token class-name"><span class="token keyword">bool</span></span> hasNullKey1<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hasNullKey1<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>entry1 <span class="token operator">!=</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name">InternalEntityEntry</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                entityType1 <span class="token operator">=</span> entry1<span class="token punctuation">.</span>EntityType<span class="token punctuation">;</span>
+                instance1 <span class="token operator">=</span> <span class="token punctuation">(</span>User<span class="token punctuation">)</span>entry1<span class="token punctuation">.</span>Entity<span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+            <span class="token keyword">else</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token class-name">ValueBuffer</span> shadowValueBuffer1 <span class="token operator">=</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">;</span>
+                entityType1 <span class="token operator">=</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"EntityType: User"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                instance1 <span class="token operator">=</span> entityType1 <span class="token keyword">switch</span>
+                <span class="token punctuation">&#123;</span>
+                    <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"EntityType: User"</span><span class="token punctuation">)</span> <span class="token operator">=></span>
+                    <span class="token punctuation">&#123;</span>
+                        <span class="token comment">// EFCore生成的shadow property，此处为 int? TenantId</span>
+                        shadowValueBuffer1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">ValueBuffer</span><span class="token punctuation">(</span><span class="token keyword">new</span><span class="token punctuation">[</span><span class="token punctuation">]</span>
+                        <span class="token punctuation">&#123;</span>
+                            dataReader<span class="token punctuation">.</span><span class="token function">IsDBNull</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span> <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name"><span class="token keyword">object</span></span><span class="token punctuation">)</span> <span class="token punctuation">:</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span>
+                        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+                        <span class="token class-name">User</span> instance <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">User</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        instance<span class="token punctuation">.</span><span class="token operator">&lt;</span>Id<span class="token operator">></span>k__BackingField <span class="token operator">=</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        instance<span class="token punctuation">.</span><span class="token operator">&lt;</span>Name<span class="token operator">></span>k__BackingField <span class="token operator">=</span> dataReader<span class="token punctuation">.</span><span class="token function">IsDBNull</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+                            <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name"><span class="token keyword">string</span></span><span class="token punctuation">)</span>
+                            <span class="token punctuation">:</span> dataReader<span class="token punctuation">.</span><span class="token function">GetString</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        instance<span class="token punctuation">.</span><span class="token operator">&lt;</span>RegisterTime<span class="token operator">></span>k__BackingField <span class="token operator">=</span> dataReader<span class="token punctuation">.</span><span class="token function">GetFieldValue</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+                        block<span class="token operator">-</span><span class="token keyword">return</span> instance<span class="token punctuation">;</span>
+                    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                    _ <span class="token operator">=></span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+                <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+                entry1 <span class="token operator">=</span> entityType1 <span class="token operator">==</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name">IEntityType</span><span class="token punctuation">)</span>
+                    <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name">InternalEntityEntry</span><span class="token punctuation">)</span>
+                    <span class="token punctuation">:</span> queryContext<span class="token punctuation">.</span><span class="token function">StartTracking</span><span class="token punctuation">(</span>entityType1<span class="token punctuation">,</span> instance1<span class="token punctuation">,</span> shadowValueBuffer1<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+
+        block<span class="token operator">-</span><span class="token keyword">return</span> instance1<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> var1<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>注意此处摆出的代码是从 EFCore 生成的表达式树改写而来，与原来的表达式树并不完全相同，原来的一些写法在 C# 中无法直接表达（例如 kotlin 那样，一对花括号最后一个值作为整个花括号的值，此处用 <code>block-return</code> 表示；以及 <code>default(void)</code> 作为三元表达式值的使用），所以稍有改写。</p>
+<p>扔代码出来不是让大家看懂，而是让大家体会一下。Don’t try to understand it, feel it.</p>
+<p>可以看到大致的实体生成过程，以及实体跟踪的流程：先看上下文是否已经追踪了这样的实体，有则直接使用，无则跳过。</p>
+<p>而 <code>switch</code> 则是给实体继承关系做出的设计。在有实体继承的情况下，<code>entityType1</code> 的值是通过读取查询结果某个 Shadow Property 字段来确定的。</p>
+<p>如果使用 <code>AsNoTracking</code> 标记查询呢？</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// SELECT [u].[Id], [u].[Name], [u].[RegisterTime], [u].[TenantId]</span>
+<span class="token comment">// FROM [Users] AS [u]</span>
+
+<span class="token return-type class-name">User</span> <span class="token function">Shape</span><span class="token punctuation">(</span><span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span> <span class="token class-name">DbDataReader</span> dataReader<span class="token punctuation">,</span> <span class="token class-name">ResultContext</span> resultContext<span class="token punctuation">,</span> <span class="token class-name">SingleQueryResultCoordinator</span> resultCoordinator<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name">User</span> var1 <span class="token operator">=</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token class-name">IEntityType</span> entityType1<span class="token punctuation">;</span>
+
+        <span class="token class-name"><span class="token keyword">var</span></span> materializationContext1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">MaterializationContext</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">valueBuffer</span><span class="token punctuation">:</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">context</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">.</span>Context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token class-name">User</span> instance1 <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token keyword">object</span><span class="token punctuation">)</span>dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token class-name">ValueBuffer</span> shadowValueBuffer1 <span class="token operator">=</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">;</span>
+            entityType1 <span class="token operator">=</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"EntityType: User"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            instance1 <span class="token operator">=</span> entityType1 <span class="token keyword">switch</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"EntityType: User"</span><span class="token punctuation">)</span> <span class="token operator">=></span>
+                <span class="token punctuation">&#123;</span>
+                    <span class="token class-name">User</span> instance <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">User</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    instance<span class="token punctuation">.</span><span class="token operator">&lt;</span>Id<span class="token operator">></span>k__BackingField <span class="token operator">=</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    instance<span class="token punctuation">.</span><span class="token operator">&lt;</span>Name<span class="token operator">></span>k__BackingField <span class="token operator">=</span> dataReader<span class="token punctuation">.</span><span class="token function">IsDBNull</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+                        <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name"><span class="token keyword">string</span></span><span class="token punctuation">)</span>
+                        <span class="token punctuation">:</span> dataReader<span class="token punctuation">.</span><span class="token function">GetString</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    instance<span class="token punctuation">.</span><span class="token operator">&lt;</span>RegisterTime<span class="token operator">></span>k__BackingField <span class="token operator">=</span> dataReader<span class="token punctuation">.</span><span class="token function">GetFieldValue</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+                    block<span class="token operator">-</span><span class="token keyword">return</span> instance<span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                _ <span class="token operator">=></span> <span class="token keyword">null</span><span class="token punctuation">,</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        block<span class="token operator">-</span><span class="token keyword">return</span> instance1<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> var1<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>可以看到，实体跟踪相关的代码没了，Shadow Property 相关的也没了，毕竟上下文不追踪这个实体，怎么会知道有哪些虚拟属性呢。上下文能有什么坏心思呢。</p>
+<p>如果是查询中 Select 创建了一个非实体类型呢？（这里其实和 <code>.Count()</code>、<code>.Sum()</code> 之类的函数效果差不多）</p>
+<p>例如 <code>context.Users.Select(u =&gt; new UserDto(u.Id, u.Name, false)).ToList();</code>。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// SELECT [u].[Id], [u].[Name]</span>
+<span class="token comment">// FROM [Users] AS [u]</span>
+
+<span class="token return-type class-name">UserDto</span> <span class="token function">Shape</span><span class="token punctuation">(</span><span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span> <span class="token class-name">DbDataReader</span> dataReader<span class="token punctuation">,</span> <span class="token class-name">ResultContext</span> resultContext<span class="token punctuation">,</span> <span class="token class-name">SingleQueryResultCoordinator</span> resultCoordinator<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> param0 <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">?</span><span class="token punctuation">)</span>dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> param1 <span class="token operator">=</span> dataReader<span class="token punctuation">.</span><span class="token function">IsDBNull</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name"><span class="token keyword">string</span></span><span class="token punctuation">)</span> <span class="token punctuation">:</span> dataReader<span class="token punctuation">.</span><span class="token function">GetString</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">UserDto</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">)</span>param0<span class="token punctuation">,</span> param1<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>嗯，甚至直接跳过了 <code>IEntityType</code> 的检查……不过也正常，毕竟这里没有一个实体对应多种 CLR 类型的状况。</p>
+<p>再来一个使用了单个实体 Include 的吧。以 <code>context.Users.Include(u =&gt; u.Tenant).ToListAsync()</code> 为例</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// SELECT [u].[Id], [u].[Name], [u].[RegisterTime], [u].[TenantId], [t].[Id]</span>
+<span class="token comment">// FROM [Users] AS [u]</span>
+<span class="token comment">// LEFT JOIN [Tenants] AS [t] ON [u].[TenantId] = [t].[Id]</span>
+
+<span class="token return-type class-name">User</span> <span class="token function">Shape</span><span class="token punctuation">(</span><span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span> <span class="token class-name">DbDataReader</span> dataReader<span class="token punctuation">,</span> <span class="token class-name">ResultContext</span> resultContext<span class="token punctuation">,</span> <span class="token class-name">SingleQueryResultCoordinator</span> resultCoordinator<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name">User</span> var1 <span class="token operator">=</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token class-name">IEntityType</span> entityType1<span class="token punctuation">;</span>
+
+        <span class="token class-name"><span class="token keyword">var</span></span> materializationContext1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">MaterializationContext</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">valueBuffer</span><span class="token punctuation">:</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">context</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">.</span>Context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token class-name">User</span> instance1 <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+        <span class="token class-name">InternalEntityEntry</span> entry1 <span class="token operator">=</span> queryContext<span class="token punctuation">.</span><span class="token function">TryGetEntry</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">key</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token named-parameter punctuation">IKey</span><span class="token punctuation">:</span> <span class="token string">"Key: User.Id PK"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">keyValues</span><span class="token punctuation">:</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">throwOnNullKey</span><span class="token punctuation">:</span> True<span class="token punctuation">,</span>
+            <span class="token keyword">out</span> <span class="token class-name"><span class="token keyword">bool</span></span> hasNullKey1<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hasNullKey1<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span> <span class="token range operator">..</span><span class="token punctuation">.</span> <span class="token punctuation">&#125;</span> <span class="token comment">// 此处与上述带 Tracking 的类似</span>
+        block<span class="token operator">-</span><span class="token keyword">return</span> instance1<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+    <span class="token class-name">Tenant</span> var2 <span class="token operator">=</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token class-name">IEntityType</span> entityType2<span class="token punctuation">;</span>
+
+        <span class="token class-name"><span class="token keyword">var</span></span> materializationContext2 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">MaterializationContext</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">valueBuffer</span><span class="token punctuation">:</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">context</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">.</span>Context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token class-name">Tenant</span> instance2 <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+        <span class="token class-name">InternalEntityEntry</span> entry2 <span class="token operator">=</span> queryContext<span class="token punctuation">.</span><span class="token function">TryGetEntry</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">key</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token named-parameter punctuation">IKey</span><span class="token punctuation">:</span> <span class="token string">"Key: Tenant.Id PK"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">keyValues</span><span class="token punctuation">:</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> dataReader<span class="token punctuation">.</span><span class="token function">IsDBNull</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">)</span> <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name"><span class="token keyword">object</span></span><span class="token punctuation">)</span> <span class="token punctuation">:</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">throwOnNullKey</span><span class="token punctuation">:</span> False<span class="token punctuation">,</span>
+            <span class="token keyword">out</span> <span class="token class-name"><span class="token keyword">bool</span></span> hasNullKey2<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hasNullKey2<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span> <span class="token range operator">..</span><span class="token punctuation">.</span> <span class="token punctuation">&#125;</span> <span class="token comment">// 此处与上述带 Tracking 的类似</span>
+        block<span class="token operator">-</span><span class="token keyword">return</span> instance2<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+    <span class="token function">IncludeReference</span><span class="token punctuation">(</span>
+        <span class="token named-parameter punctuation">queryContext</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">entity</span><span class="token punctuation">:</span> var1<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">relatedEntity</span><span class="token punctuation">:</span> var2<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">navigation</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"Navigation: User.Tenant (Tenant) ToPrincipal Tenant Inverse: Users"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">inverseNavigation</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"Navigation: Tenant.Users (ICollection&lt;User>) Collection ToDependent User Inverse: Tenant"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">fixup</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>entity<span class="token punctuation">,</span> relatedEntity<span class="token punctuation">)</span> <span class="token operator">=></span>
+        <span class="token punctuation">&#123;</span>
+            entity<span class="token punctuation">.</span><span class="token operator">&lt;</span>Tenant<span class="token operator">></span>k__BackingField <span class="token operator">=</span> relatedEntity<span class="token punctuation">;</span>
+            <span class="token comment">// value(ClrICollectionAccessor&lt;Tenant, ICollection&lt;User>, User>) = inverseNavigation.GetCollectionAccessor()</span>
+            <span class="token keyword">value</span><span class="token punctuation">(</span>IClrICollectionAccessor<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Add</span><span class="token punctuation">(</span>relatedEntity<span class="token punctuation">,</span> entity<span class="token punctuation">,</span> <span class="token named-parameter punctuation">forMaterialization</span><span class="token punctuation">:</span> True<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">trackingQuery</span><span class="token punctuation">:</span> True<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> var1<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+
+<span class="token comment">// Microsoft.EntityFrameworkCore.Query.RelationalShapedQueryCompilingExpressionVisitor+ShaperProcessingExpressionVisitor</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token generic-method"><span class="token function">IncludeReference</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TEntity<span class="token punctuation">,</span> TIncludingEntity<span class="token punctuation">,</span> TIncludedEntity<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span>
+    <span class="token class-name">TEntity</span> entity<span class="token punctuation">,</span>
+    <span class="token class-name">TIncludedEntity</span> relatedEntity<span class="token punctuation">,</span>
+    <span class="token class-name">INavigationBase</span> navigation<span class="token punctuation">,</span>
+    <span class="token class-name">INavigationBase</span> inverseNavigation<span class="token punctuation">,</span>
+    <span class="token class-name">Action<span class="token punctuation">&lt;</span>TIncludingEntity<span class="token punctuation">,</span> TIncludedEntity<span class="token punctuation">></span></span> fixup<span class="token punctuation">,</span>
+    <span class="token class-name"><span class="token keyword">bool</span></span> trackingQuery<span class="token punctuation">)</span>
+    <span class="token keyword">where</span> <span class="token class-name">TEntity</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token keyword">class</span></span>
+    <span class="token keyword">where</span> <span class="token class-name">TIncludingEntity</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token keyword">class</span><span class="token punctuation">,</span> <span class="token class-name">TEntity</span></span>
+    <span class="token keyword">where</span> <span class="token class-name">TIncludedEntity</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token keyword">class</span></span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>entity <span class="token keyword">is</span> <span class="token class-name">TIncludingEntity</span> includingEntity<span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>trackingQuery
+            <span class="token operator">&amp;&amp;</span> navigation<span class="token punctuation">.</span>DeclaringEntityType<span class="token punctuation">.</span><span class="token function">FindPrimaryKey</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">// For non-null relatedEntity StateManager will set the flag</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>relatedEntity <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                queryContext<span class="token punctuation">.</span><span class="token function">SetNavigationIsLoaded</span><span class="token punctuation">(</span>includingEntity<span class="token punctuation">,</span> navigation<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">else</span>
+        <span class="token punctuation">&#123;</span>
+            navigation<span class="token punctuation">.</span><span class="token function">SetIsLoadedWhenNoTracking</span><span class="token punctuation">(</span>includingEntity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>relatedEntity <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token function">fixup</span><span class="token punctuation">(</span>includingEntity<span class="token punctuation">,</span> relatedEntity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span>inverseNavigation <span class="token operator">!=</span> <span class="token keyword">null</span>
+                    <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span>inverseNavigation<span class="token punctuation">.</span>IsCollection<span class="token punctuation">)</span>
+                <span class="token punctuation">&#123;</span>
+                    inverseNavigation<span class="token punctuation">.</span><span class="token function">SetIsLoadedWhenNoTracking</span><span class="token punctuation">(</span>relatedEntity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>再来一个集合 Include 的吧。集合的特别复杂。</p>
+<p>以 <code>context.Tenants.Include(t =&gt; t.Users).ToListAsync()</code> 为例</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token comment">// SELECT [t].[Id], [u].[Id], [u].[Name], [u].[RegisterTime], [u].[TenantId]</span>
+<span class="token comment">// FROM [Tenants] AS [t]</span>
+<span class="token comment">// LEFT JOIN [Users] AS [u] ON [t].[Id] = [u].[TenantId]</span>
+<span class="token comment">// ORDER BY [t].[Id], [u].[Id]</span>
+
+<span class="token return-type class-name">Tenant</span> <span class="token function">Shape</span><span class="token punctuation">(</span><span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span> <span class="token class-name">DbDataReader</span> dataReader<span class="token punctuation">,</span> <span class="token class-name">ResultContext</span> resultContext<span class="token punctuation">,</span> <span class="token class-name">SingleQueryResultCoordinator</span> resultCoordinator<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>resultContext<span class="token punctuation">.</span>Values <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token class-name">Tenant</span> var1 <span class="token operator">=</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token class-name"><span class="token keyword">var</span></span> materializationContext1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">MaterializationContext</span><span class="token punctuation">(</span>
+                <span class="token named-parameter punctuation">valueBuffer</span><span class="token punctuation">:</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">,</span>
+                <span class="token named-parameter punctuation">context</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">.</span>Context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            <span class="token class-name">Tenant</span> instance1 <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+            <span class="token class-name">InternalEntityEntry</span> entry1 <span class="token operator">=</span> queryContext<span class="token punctuation">.</span><span class="token function">TryGetEntry</span><span class="token punctuation">(</span>
+                <span class="token named-parameter punctuation">key</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token named-parameter punctuation">IKey</span><span class="token punctuation">:</span> <span class="token string">"Key: Tenant.Id PK"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+                <span class="token named-parameter punctuation">keyValues</span><span class="token punctuation">:</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                <span class="token named-parameter punctuation">throwOnNullKey</span><span class="token punctuation">:</span> True<span class="token punctuation">,</span>
+                <span class="token keyword">out</span> <span class="token class-name"><span class="token keyword">bool</span></span> hasNullKey1<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hasNullKey1<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span> <span class="token range operator">..</span><span class="token punctuation">.</span> <span class="token punctuation">&#125;</span> <span class="token comment">// 此处与上述带 Tracking 的类似</span>
+            block<span class="token operator">-</span><span class="token keyword">return</span> instance1<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+        resultContext<span class="token punctuation">.</span>Values <span class="token operator">=</span> <span class="token keyword">new</span><span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token punctuation">&#123;</span> var1 <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+        <span class="token function">InitializeIncludeCollection</span><span class="token punctuation">(</span>
+            <span class="token named-parameter punctuation">collectionId</span><span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">queryContext</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">dbDataReader</span><span class="token punctuation">:</span> dataReader<span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">resultCoordinator</span><span class="token punctuation">:</span> resultCoordinator<span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">entity</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>Tenant<span class="token punctuation">)</span>resultContext<span class="token punctuation">.</span>Values<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">parentIdentifier</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dataReader<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> <span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">?</span><span class="token punctuation">)</span>dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">outerIdentifier</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dataReader<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> <span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">?</span><span class="token punctuation">)</span>dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">navigation</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"Navigation: Tenant.Users (ICollection&lt;User>) Collection ToDependent User Inverse: Tenant"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">clrCollectionAccessor</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>ClrCollectionAccessor<span class="token punctuation">)</span><span class="token punctuation">,</span>
+            <span class="token named-parameter punctuation">trackingQuery</span><span class="token punctuation">:</span> True<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token function">PopulateIncludeCollection</span><span class="token punctuation">(</span>
+        <span class="token named-parameter punctuation">collectionId</span><span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">queryContext</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">dbDataReader</span><span class="token punctuation">:</span> dataReader<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">resultCoordinator</span><span class="token punctuation">:</span> resultCoordinator<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">parentIdentifier</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dataReader<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> <span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">?</span><span class="token punctuation">)</span>dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">outerIdentifier</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dataReader<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> <span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">?</span><span class="token punctuation">)</span>dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">selfIdentifier</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dataReader<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span> <span class="token punctuation">&#123;</span> dataReader<span class="token punctuation">.</span><span class="token function">IsDBNull</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name"><span class="token keyword">int</span><span class="token punctuation">?</span></span><span class="token punctuation">)</span> <span class="token punctuation">:</span> <span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">?</span><span class="token punctuation">)</span>dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">parentIdentifierValueComparers</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>IReadOnlyList<span class="token operator">&lt;</span>ValueComparer<span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">outerIdentifierValueComparers</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>IReadOnlyList<span class="token operator">&lt;</span>ValueComparer<span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">selfIdentifierValueComparers</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span>IReadOnlyList<span class="token operator">&lt;</span>ValueComparer<span class="token operator">></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">innerShaper</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dataReader<span class="token punctuation">,</span> resultContext<span class="token punctuation">,</span> resultCoordinator<span class="token punctuation">)</span> <span class="token operator">=></span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token class-name">User</span> var1 <span class="token operator">=</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token class-name"><span class="token keyword">var</span></span> materializationContext2 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">MaterializationContext</span><span class="token punctuation">(</span>
+                    <span class="token named-parameter punctuation">valueBuffer</span><span class="token punctuation">:</span> ValueBuffer<span class="token punctuation">.</span>Empty<span class="token punctuation">,</span>
+                    <span class="token named-parameter punctuation">context</span><span class="token punctuation">:</span> queryContext<span class="token punctuation">.</span>Context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+                <span class="token class-name">User</span> instance2 <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+
+                <span class="token class-name">InternalEntityEntry</span> entry2 <span class="token operator">=</span> queryContext<span class="token punctuation">.</span><span class="token function">TryGetEntry</span><span class="token punctuation">(</span>
+                    <span class="token named-parameter punctuation">key</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token named-parameter punctuation">IKey</span><span class="token punctuation">:</span> <span class="token string">"Key: User.Id PK"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+                    <span class="token named-parameter punctuation">keyValues</span><span class="token punctuation">:</span> <span class="token keyword">new</span><span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token punctuation">&#123;</span> dataReader<span class="token punctuation">.</span><span class="token function">IsDBNull</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">?</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name"><span class="token keyword">object</span></span><span class="token punctuation">)</span> <span class="token punctuation">:</span> dataReader<span class="token punctuation">.</span><span class="token function">GetInt32</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                    <span class="token named-parameter punctuation">throwOnNullKey</span><span class="token punctuation">:</span> False<span class="token punctuation">,</span>
+                    <span class="token keyword">out</span> <span class="token class-name"><span class="token keyword">bool</span></span> hasNullKey2<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+                <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hasNullKey2<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span> <span class="token range operator">..</span><span class="token punctuation">.</span> <span class="token punctuation">&#125;</span> <span class="token comment">// 此处与上述带 Tracking 的类似</span>
+                block<span class="token operator">-</span><span class="token keyword">return</span> instance2<span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+            <span class="token keyword">return</span> var1<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">inverseNavigation</span><span class="token punctuation">:</span> <span class="token keyword">value</span><span class="token punctuation">(</span><span class="token string">"Navigation: User.Tenant (Tenant) ToPrincipal Tenant Inverse: Users"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">fixup</span><span class="token punctuation">:</span> <span class="token punctuation">(</span><span class="token class-name">Tenant</span> including<span class="token punctuation">,</span> <span class="token class-name">User</span> included<span class="token punctuation">)</span> <span class="token operator">=></span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">value</span><span class="token punctuation">(</span>IClrICollectionAccessor<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Add</span><span class="token punctuation">(</span>including<span class="token punctuation">,</span> included<span class="token punctuation">,</span> True<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            included<span class="token punctuation">.</span><span class="token operator">&lt;</span>Tenant<span class="token operator">></span>k__BackingField <span class="token operator">=</span> including<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">trackingQuery</span><span class="token punctuation">:</span> True<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> resultCoordinator<span class="token punctuation">.</span>ResultReady
+        <span class="token punctuation">?</span> <span class="token punctuation">(</span>Tenant<span class="token punctuation">)</span>resultContext<span class="token punctuation">.</span>Values<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+        <span class="token punctuation">:</span> <span class="token keyword">default</span><span class="token punctuation">(</span><span class="token type-expression class-name">Tenant</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+
+<span class="token comment">// Microsoft.EntityFrameworkCore.Query.RelationalShapedQueryCompilingExpressionVisitor+ShaperProcessingExpressionVisitor</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token generic-method"><span class="token function">InitializeIncludeCollection</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TParent<span class="token punctuation">,</span> TNavigationEntity<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token class-name"><span class="token keyword">int</span></span> collectionId<span class="token punctuation">,</span>
+    <span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span>
+    <span class="token class-name">DbDataReader</span> dbDataReader<span class="token punctuation">,</span>
+    <span class="token class-name">SingleQueryResultCoordinator</span> resultCoordinator<span class="token punctuation">,</span>
+    <span class="token class-name">TParent</span> entity<span class="token punctuation">,</span>
+    <span class="token class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> <span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">></span></span> parentIdentifier<span class="token punctuation">,</span>
+    <span class="token class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> <span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">></span></span> outerIdentifier<span class="token punctuation">,</span>
+    <span class="token class-name">INavigationBase</span> navigation<span class="token punctuation">,</span>
+    <span class="token class-name">IClrCollectionAccessor</span> clrCollectionAccessor<span class="token punctuation">,</span>
+    <span class="token class-name"><span class="token keyword">bool</span></span> trackingQuery<span class="token punctuation">)</span>
+    <span class="token keyword">where</span> <span class="token class-name">TParent</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token keyword">class</span></span>
+    <span class="token keyword">where</span> <span class="token class-name">TNavigationEntity</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token keyword">class</span><span class="token punctuation">,</span> <span class="token class-name">TParent</span></span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">object</span></span> collection <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>entity <span class="token keyword">is</span> <span class="token class-name">TNavigationEntity</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>trackingQuery<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            queryContext<span class="token punctuation">.</span><span class="token function">SetNavigationIsLoaded</span><span class="token punctuation">(</span>entity<span class="token punctuation">,</span> navigation<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">else</span>
+        <span class="token punctuation">&#123;</span>
+            navigation<span class="token punctuation">.</span><span class="token function">SetIsLoadedWhenNoTracking</span><span class="token punctuation">(</span>entity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        collection <span class="token operator">=</span> clrCollectionAccessor<span class="token punctuation">.</span><span class="token function">GetOrCreate</span><span class="token punctuation">(</span>entity<span class="token punctuation">,</span> <span class="token named-parameter punctuation">forMaterialization</span><span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> parentKey <span class="token operator">=</span> <span class="token function">parentIdentifier</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dbDataReader<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> outerKey <span class="token operator">=</span> <span class="token function">outerIdentifier</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dbDataReader<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> collectionMaterializationContext <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">SingleQueryCollectionContext</span><span class="token punctuation">(</span>entity<span class="token punctuation">,</span> collection<span class="token punctuation">,</span> parentKey<span class="token punctuation">,</span> outerKey<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    resultCoordinator<span class="token punctuation">.</span><span class="token function">SetSingleQueryCollectionContext</span><span class="token punctuation">(</span>collectionId<span class="token punctuation">,</span> collectionMaterializationContext<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">// Microsoft.EntityFrameworkCore.Query.RelationalShapedQueryCompilingExpressionVisitor+ShaperProcessingExpressionVisitor</span>
+<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token generic-method"><span class="token function">PopulateIncludeCollection</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TIncludingEntity<span class="token punctuation">,</span> TIncludedEntity<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token class-name"><span class="token keyword">int</span></span> collectionId<span class="token punctuation">,</span>
+    <span class="token class-name">QueryContext</span> queryContext<span class="token punctuation">,</span>
+    <span class="token class-name">DbDataReader</span> dbDataReader<span class="token punctuation">,</span>
+    <span class="token class-name">SingleQueryResultCoordinator</span> resultCoordinator<span class="token punctuation">,</span>
+    <span class="token class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> <span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">></span></span> parentIdentifier<span class="token punctuation">,</span>
+    <span class="token class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> <span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">></span></span> outerIdentifier<span class="token punctuation">,</span>
+    <span class="token class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> <span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">></span></span> selfIdentifier<span class="token punctuation">,</span>
+    <span class="token class-name">IReadOnlyList<span class="token punctuation">&lt;</span>ValueComparer<span class="token punctuation">></span></span> parentIdentifierValueComparers<span class="token punctuation">,</span>
+    <span class="token class-name">IReadOnlyList<span class="token punctuation">&lt;</span>ValueComparer<span class="token punctuation">></span></span> outerIdentifierValueComparers<span class="token punctuation">,</span>
+    <span class="token class-name">IReadOnlyList<span class="token punctuation">&lt;</span>ValueComparer<span class="token punctuation">></span></span> selfIdentifierValueComparers<span class="token punctuation">,</span>
+    <span class="token class-name">Func<span class="token punctuation">&lt;</span>QueryContext<span class="token punctuation">,</span> DbDataReader<span class="token punctuation">,</span> ResultContext<span class="token punctuation">,</span> SingleQueryResultCoordinator<span class="token punctuation">,</span> TIncludedEntity<span class="token punctuation">></span></span> innerShaper<span class="token punctuation">,</span>
+    <span class="token class-name">INavigationBase</span> inverseNavigation<span class="token punctuation">,</span>
+    <span class="token class-name">Action<span class="token punctuation">&lt;</span>TIncludingEntity<span class="token punctuation">,</span> TIncludedEntity<span class="token punctuation">></span></span> fixup<span class="token punctuation">,</span>
+    <span class="token class-name"><span class="token keyword">bool</span></span> trackingQuery<span class="token punctuation">)</span>
+    <span class="token keyword">where</span> <span class="token class-name">TIncludingEntity</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token keyword">class</span></span>
+    <span class="token keyword">where</span> <span class="token class-name">TIncludedEntity</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token keyword">class</span></span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> collectionMaterializationContext <span class="token operator">=</span> resultCoordinator<span class="token punctuation">.</span>Collections<span class="token punctuation">[</span>collectionId<span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>collectionMaterializationContext<span class="token punctuation">.</span>Parent <span class="token keyword">is</span> <span class="token class-name">TIncludingEntity</span> entity<span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>resultCoordinator<span class="token punctuation">.</span>HasNext <span class="token operator">==</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">// Outer Enumerator has ended</span>
+            <span class="token function">GenerateCurrentElementIfPending</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">CompareIdentifiers</span><span class="token punctuation">(</span>
+            outerIdentifierValueComparers<span class="token punctuation">,</span>
+            <span class="token function">outerIdentifier</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dbDataReader<span class="token punctuation">)</span><span class="token punctuation">,</span> collectionMaterializationContext<span class="token punctuation">.</span>OuterIdentifier<span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">// Outer changed so collection has ended. Materialize last element.</span>
+            <span class="token function">GenerateCurrentElementIfPending</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token comment">// If parent also changed then this row is now pointing to element of next collection</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token function">CompareIdentifiers</span><span class="token punctuation">(</span>
+                parentIdentifierValueComparers<span class="token punctuation">,</span>
+                <span class="token function">parentIdentifier</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dbDataReader<span class="token punctuation">)</span><span class="token punctuation">,</span> collectionMaterializationContext<span class="token punctuation">.</span>ParentIdentifier<span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                resultCoordinator<span class="token punctuation">.</span>HasNext <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token class-name"><span class="token keyword">var</span></span> innerKey <span class="token operator">=</span> <span class="token function">selfIdentifier</span><span class="token punctuation">(</span>queryContext<span class="token punctuation">,</span> dbDataReader<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>innerKey<span class="token punctuation">.</span><span class="token function">All</span><span class="token punctuation">(</span>e <span class="token operator">=></span> e <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">// No correlated element</span>
+            <span class="token keyword">return</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>collectionMaterializationContext<span class="token punctuation">.</span>SelfIdentifier <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">CompareIdentifiers</span><span class="token punctuation">(</span>selfIdentifierValueComparers<span class="token punctuation">,</span> innerKey<span class="token punctuation">,</span> collectionMaterializationContext<span class="token punctuation">.</span>SelfIdentifier<span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token comment">// repeated row for current element</span>
+                <span class="token comment">// If it is pending materialization then it may have nested elements</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span>collectionMaterializationContext<span class="token punctuation">.</span>ResultContext<span class="token punctuation">.</span>Values <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+                <span class="token punctuation">&#123;</span>
+                    <span class="token function">ProcessCurrentElementRow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+
+                resultCoordinator<span class="token punctuation">.</span>ResultReady <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+                <span class="token keyword">return</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+
+            <span class="token comment">// Row for new element which is not first element</span>
+            <span class="token comment">// So materialize the element</span>
+            <span class="token function">GenerateCurrentElementIfPending</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            resultCoordinator<span class="token punctuation">.</span>HasNext <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+            collectionMaterializationContext<span class="token punctuation">.</span><span class="token function">UpdateSelfIdentifier</span><span class="token punctuation">(</span>innerKey<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">else</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">// First row for current element</span>
+            collectionMaterializationContext<span class="token punctuation">.</span><span class="token function">UpdateSelfIdentifier</span><span class="token punctuation">(</span>innerKey<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token function">ProcessCurrentElementRow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        resultCoordinator<span class="token punctuation">.</span>ResultReady <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token function">ProcessCurrentElementRow</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token class-name"><span class="token keyword">var</span></span> previousResultReady <span class="token operator">=</span> resultCoordinator<span class="token punctuation">.</span>ResultReady<span class="token punctuation">;</span>
+        resultCoordinator<span class="token punctuation">.</span>ResultReady <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+        <span class="token class-name"><span class="token keyword">var</span></span> relatedEntity <span class="token operator">=</span> <span class="token function">innerShaper</span><span class="token punctuation">(</span>
+            queryContext<span class="token punctuation">,</span> dbDataReader<span class="token punctuation">,</span> collectionMaterializationContext<span class="token punctuation">.</span>ResultContext<span class="token punctuation">,</span> resultCoordinator<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>resultCoordinator<span class="token punctuation">.</span>ResultReady<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">// related entity is materialized</span>
+            collectionMaterializationContext<span class="token punctuation">.</span>ResultContext<span class="token punctuation">.</span>Values <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>trackingQuery<span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token function">fixup</span><span class="token punctuation">(</span>entity<span class="token punctuation">,</span> relatedEntity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span>inverseNavigation <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+                <span class="token punctuation">&#123;</span>
+                    inverseNavigation<span class="token punctuation">.</span><span class="token function">SetIsLoadedWhenNoTracking</span><span class="token punctuation">(</span>relatedEntity<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+
+        resultCoordinator<span class="token punctuation">.</span>ResultReady <span class="token operator">&amp;=</span> previousResultReady<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token function">GenerateCurrentElementIfPending</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>collectionMaterializationContext<span class="token punctuation">.</span>ResultContext<span class="token punctuation">.</span>Values <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            resultCoordinator<span class="token punctuation">.</span>HasNext <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+            <span class="token function">ProcessCurrentElementRow</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        collectionMaterializationContext<span class="token punctuation">.</span><span class="token function">UpdateSelfIdentifier</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>嗯，这件事情很神奇。</p>
+<p>理论上，在不带过滤的情况下，One Include Many 和 Many Include One 应该是一致的？</p>
+<p>为何代码为什么差别这么大？实际上，这就是“查询跟踪”的神秘之处了。</p>
+<p>不知道各位朋友是否在网上看见过这样的文章，说使用 <code>AsNoTracking</code> 可以提高查询性能，并且还建议大家直接 <code>optionsBuilder.UseQueryTrackingBehavior(NoTracking)</code>？</p>
+<p>实际上，这样有一种隐藏的坑：</p>
+<p>如果你使用了一对多的 SQL JOIN，并且还保持着原来的实体形状，如以下代码所示：</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token class-name"><span class="token keyword">var</span></span> results <span class="token operator">=</span> context<span class="token punctuation">.</span>Tenants
+    <span class="token punctuation">.</span><span class="token function">AsNoTracking</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">Join</span><span class="token punctuation">(</span>
+    	<span class="token named-parameter punctuation">inner</span><span class="token punctuation">:</span> context<span class="token punctuation">.</span>Users<span class="token punctuation">.</span><span class="token function">AsNoTracking</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">outerKeySelector</span><span class="token punctuation">:</span> t <span class="token operator">=></span> t<span class="token punctuation">.</span>Id<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">innerKeySelector</span><span class="token punctuation">:</span> u <span class="token operator">=></span> u<span class="token punctuation">.</span>TenantId<span class="token punctuation">,</span>
+        <span class="token named-parameter punctuation">resultSelector</span><span class="token punctuation">:</span> <span class="token punctuation">(</span>t<span class="token punctuation">,</span> u<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">new</span> <span class="token punctuation">&#123;</span> t<span class="token punctuation">,</span> u <span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">ToList</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>假设你的 <code>results[0].t.Id == results[1].t.Id</code>，也就是前两条在数据库中是同一个 <code>t</code> 实例，当你拉取到本地时，你会发现 <code>object.ReferenceEquals(results[0].t, results[1].t) == false</code>，或者说在本地不是同一个实例，而两者仅仅是值相等。</p>
+<p>如果上述代码使用的都是 <code>AsTracking</code>，那么 <code>object.ReferenceEquals(results[0].t, results[1].t) == true</code>，从头到尾只会创建一个这样的实体。</p>
+<p>为了保证 One Include Many 在未开启实体追踪的时候也正常工作，不得不使用一些奇怪的代码来保证结果正确性。</p>
+<p>这种情况是在笔者两年前做 JOIN 以后拉到本地 GroupBy 的时候发现的。当年在已经写了很多代码以后才开启了 NoTracking，结果导致很多原有功能失效。从那之后，笔者都是老老实实开 Tracking 的。</p>
+<p>对，确实有很多“不开启实体跟踪”还要“生成出来的实体不重复”的情况，这种情况下要怎么做呢？</p>
+<p>EFCore 5.0 新推出了 <code>NoTrackingWithIdentityResolution</code>。用这个就能保证上述的引用相等，但是实体不会最终被上下文追踪。</p>
+<p>另外，所谓“不开启实体跟踪”最大的影响场景，是查询大量数据以后，对上下文进行多次保存操作。如果你觉得频繁保存时处理大量实体变得异常缓慢，你应该考虑修改 <code>DbContext.ChangeTracker.AutoDetectChangesEnabled</code> 为 <code>false</code>，然后对所有修改过的实体手动调用 <code>context.Update</code>。这样即使上下文追踪上万个实体，保存都是几乎一瞬间的事情。</p>
+<p>另外，实体追踪还有什么用呢？</p>
+<p>记得 <code>IQueryable&lt;&gt;</code> 们的一个拓展 <code>.LoadAsync()</code> 吗？这个 <code>.LoadAsync()</code>  的注释说，它的功能约等于 <code>.ToListAsync()</code> 并立马将这个列表扔掉。那查询到的东西怎么利用？使用 <code>context.Set&lt;MyEntity&gt;().FindAsync(id)</code> 即可。它仅在 <code>id</code> 不存在于本地的时候才到数据库查找结果。</p>
+<p>所以笔者给出的建议是</p>
+<ul>
+<li>在性能要求高的关键路径上尽量少使用导航属性</li>
+<li>尽量不依赖实体更改自动检测</li>
+</ul>
+<p>当然了，导航属性还是很好的，编写 <code>Where</code> 的时候可以少编写很多 <code>Join</code>……</p>
+<p>今天关于查询编译和查询跟踪的讨论就到这里啦。</p>
+
+  <p></p>
+  
+
+
+          <div class="row mt-2">
+  
+    <div class="eight columns">
+      <p id="madewith">
+        <a class="footer-link" href="https://hexo.io" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="Hexo.io">自豪地采用Hexo<!--和https://github.com/adisaktijrs/hexo-theme-minima/--></a>
+        |
+        <a class="footer-link" href="http://www.beian.miit.gov.cn/" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="工信部备案">皖ICP备17014812号-1</a>
+    </div>
+
+    <!-- Sepcial thanks to https://simpleicons.org/ for the icons -->
+    <div class="four columns mb-3 posisi" >
+      
+      <a class="ml-0 footer-link icon" href="https://github.com/yang-er" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="GitHub">
+        <svg class="github svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      </a>
+      
+
+      
+      <a class="ml-0 footer-link icon" href="https://www.linkedin.com/in/%E8%89%AF%E6%AD%A3-%E6%9D%A8-0810451a4/" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="LinkedIn">
+        <svg class="linkedin svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>LinkedIn</title><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      
+
+      
+
+      
+      <a class="ml-0 footer-link icon" id="mailuna" href="#" data-anuliam="tFWasR3b6kGQ5Fmbn1SZy5yYv1GI" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="Email">
+        <svg class="mailru svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Mail</title><path d="M15.61 12c0 1.99-1.62 3.61-3.61 3.61-1.99 0-3.61-1.62-3.61-3.61 0-1.99 1.62-3.61 3.61-3.61 1.99 0 3.61 1.62 3.61 3.61M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12c2.424 0 4.761-.722 6.76-2.087l.034-.024-1.617-1.879-.027.017A9.494 9.494 0 0 1 12 21.54c-5.26 0-9.54-4.28-9.54-9.54 0-5.26 4.28-9.54 9.54-9.54 5.26 0 9.54 4.28 9.54 9.54a9.63 9.63 0 0 1-.225 2.05c-.301 1.239-1.169 1.618-1.82 1.568-.654-.053-1.42-.52-1.426-1.661V12A6.076 6.076 0 0 0 12 5.93 6.076 6.076 0 0 0 5.93 12 6.076 6.076 0 0 0 12 18.07a6.02 6.02 0 0 0 4.3-1.792 3.9 3.9 0 0 0 3.32 1.805c.874 0 1.74-.292 2.437-.821.719-.547 1.256-1.336 1.553-2.285.047-.154.135-.504.135-.507l.002-.013c.175-.76.253-1.52.253-2.457 0-6.617-5.383-12-12-12"/></svg>
+      </a>
+      
+
+    </div>
+  
+</div>
+
+<script>
+  (function () {
+    const mailuna = document.getElementById('mailuna');
+    const real = mailuna.attributes['data-anuliam'].value.split('').reverse().join('');
+    mailuna.href = atob(real).split('').reverse().join('').trim();
+  })();
+</script>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+  <script src="/js/nanobar.min.js"></script>
+  <script>
+    var options = {
+      classname: 'nanobar',
+      id: 'myNanobar'
+    };
+    var nanobar = new Nanobar(options);
+    nanobar.go(30);
+    nanobar.go(76);
+    nanobar.go(100);
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Minima -->
+  <!-- Hexo theme created by @adisaktijrs -->
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+
+  
+  <title>服务器程序的Xamarin-Java.Interop体验（一）</title>
+  
+  <link rel="canonical" href="https://www.90yang.com/server-apps-xamarin-java-interop-1/">
+  
+  <meta name="description" content="这几天需要写一个用到Java模块的程序，但是Java是不可能写的，这辈子都不可能写的，只能搞搞interop了。 目前市面上已有的基本上是IKVM.NET和JNBridgePro，后者没太了解技术细节，前者看起来是只有单向的互操作（JVM是跑在CLR上的，或者将Java字节码翻译到MSIL）。 想起">
+  
+  
+  <meta name="author" content="小羊">
+  <meta property="og:site_name" content="小羊儿的心情天空" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="服务器程序的Xamarin-Java.Interop体验（一）" />
+  
+  <meta property="og:description" content="这几天需要写一个用到Java模块的程序，但是Java是不可能写的，这辈子都不可能写的，只能搞搞interop了。 目前市面上已有的基本上是IKVM.NET和JNBridgePro，后者没太了解技术细节，前者看起来是只有单向的互操作（JVM是跑在CLR上的，或者将Java字节码翻译到MSIL）。 想起">
+  
+  <meta property="og:url" content="https://www.90yang.com/server-apps-xamarin-java-interop-1/" />
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Preload fonts
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="preload" href="../fonts/dm-serif-display-v4-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/inter-v2-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  
+<link rel="stylesheet" href="/css/normalize.css">
+
+  
+<link rel="stylesheet" href="/css/skeleton.css">
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+  
+<link rel="stylesheet" href="/css/prism-dark.css">
+
+  
+<link rel="stylesheet" href="/css/prism-line-numbers.css">
+
+  <!-- User css -->
+  
+  
+<link rel="stylesheet" href="/css/user.css">
+
+  
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="">
+
+  <!-- Custom Theme Color Style
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <style>
+  a:not(.icon) {
+    text-decoration-color: #0FA0CE;
+    background-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 50%,
+      #0FA0CE 50%
+    );
+  }
+  blockquote {
+    border-left: 8px solid #0FA0CE;
+  }
+  .nanobar .bar {
+    background: #0FA0CE;
+  }
+  .button.button-primary:hover,
+  button.button-primary:hover,
+  input[type="submit"].button-primary:hover,
+  input[type="reset"].button-primary:hover,
+  input[type="button"].button-primary:hover,
+  .button.button-primary:focus,
+  button.button-primary:focus,
+  input[type="submit"].button-primary:focus,
+  input[type="reset"].button-primary:focus,
+  input[type="button"].button-primary:focus {
+    background-color: #0FA0CE;
+    border-color: #0FA0CE;
+  }
+  input[type="email"]:focus,
+  input[type="number"]:focus,
+  input[type="search"]:focus,
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="password"]:focus,
+  textarea:focus,
+  select:focus {
+    border: 1px solid #0FA0CE;
+  }
+</style>
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-math@4.0.0/dist/style.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 5.4.0"></head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div>
+
+        <div class="row">
+  <div class="two columns" style="max-width: 50px">
+    <h1 class="mt-2 mode">
+      <div onclick=setDarkMode(true) id="darkBtn">🌑</div>
+      <div onclick=setDarkMode(false) id="lightBtn" class=hidden>☀️</div>
+      <script >
+        if (localStorage.getItem('preferredTheme') == 'dark') {
+          setDarkMode(true)
+        }
+        function setDarkMode(isDark) {
+          var darkBtn = document.getElementById('darkBtn')
+          var lightBtn = document.getElementById('lightBtn')
+          if (isDark) {
+            lightBtn.style.display = "block"
+            darkBtn.style.display = "none"
+            localStorage.setItem('preferredTheme', 'dark');
+          } else {
+            lightBtn.style.display = "none"
+            darkBtn.style.display = "block"
+            localStorage.removeItem('preferredTheme');
+          }
+          document.body.classList.toggle("darkmode");
+        }
+      </script>
+    </h1>
+  </div>
+
+  <div class="six columns ml-1">
+    <h1 class="mt-2" style="font-weight: 700;">
+      小羊儿的心情天空
+    </h1>
+  </div>
+
+  <div class="twelve columns">
+    <div class="row">
+      <div class="nine columns left">
+        <a href="/">我的博客</a>
+        
+          
+          <a target="_blank" rel="noopener" href="https://www.xylab.fun/" class="ml">我的实验</a>
+          
+        
+          
+          <a href="/links" class="ml">友情链接</a>
+          
+        
+      </div>
+    </div>
+    <hr style="margin-bottom: 2.6rem">
+  </div>
+</div>
+
+        <div class="trans">
+            <h2>服务器程序的Xamarin-Java.Interop体验（一）</h2>
+  <p class="mbb-2">May 1, 2020 由 小羊</p>
+
+  <p>这几天需要写一个用到Java模块的程序，但是Java是不可能写的，这辈子都不可能写的，只能搞搞interop了。</p>
+<p>目前市面上已有的基本上是IKVM.NET和JNBridgePro，后者没太了解技术细节，前者看起来是只有单向的互操作（JVM是跑在CLR上的，或者将Java字节码翻译到MSIL）。</p>
+<p><a target="_blank" rel="noopener" href="http://xn--9iq24dz6ak4p13j4vj6p8dksc.NET">想起来之前好像说.NET</a> 5.0要支持Java互操作，但是翻了翻dotnet/runtime库，丝毫看不出来仓库内在搞支持。后来就想了想，换了xamarin/java.interop库研究看看。</p>
+<p>按照之前Xamarin.Android的做法的话，互操作应该是双向的。C#这边可以继承Java的类，然后Java那边也会生成访问对应C#代码的代码。</p>
+<p>然后发现……<a target="_blank" rel="noopener" href="http://xn--8mqxbu80bwwmytcgzn.NET">他们正在支持.NET</a> Core 3.1，但是其JNI库引用的头文件还是mono的，而且用到了pthread和dlfcn的头文件，也就是说……现在必须在Linux/macOS和mono下运行。</p>
+<p>那么先来build一下吧~</p>
+<p>此处以Ubuntu 18.04为例。首先需要准备一些系统依赖。编译要很久，还是选择apt安装吧。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">sudo</span> <span class="token function">apt</span> <span class="token function">install</span> gnupg ca-certificates
+<span class="token function">sudo</span> apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
+<span class="token builtin class-name">echo</span> <span class="token string">"deb https://download.mono-project.com/repo/ubuntu stable-bionic main"</span> <span class="token operator">|</span> <span class="token function">sudo</span> <span class="token function">tee</span> /etc/apt/sources.list.d/mono-official-stable.list
+<span class="token function">sudo</span> <span class="token function">apt</span> update
+<span class="token function">sudo</span> <span class="token function">apt</span> <span class="token function">install</span> openjdk-8-jdk mono-devel nuget dotnet-sdk-3.1
+<span class="token function">sudo</span> <span class="token function">ln</span> -s /usr/include/mono-2.0/mono /usr/include/mono<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>编译的时候TargetFrameworks要用到netcoreapp3.1，所以得安装上。然后就是编译内容了。</p>
+<p>先clone一下。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">git</span> clone https://github.com/xamarin/java.interop --depth<span class="token operator">=</span><span class="token number">1</span>
+<span class="token builtin class-name">cd</span> java.interop<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>然后先简单修改一下几个文件。</p>
+<pre class="line-numbers language-diff" data-language="diff"><code class="language-diff">diff --git a/Directory.Build.props b/Directory.Build.props
+index 521e68a..1da7d44 100644
+<span class="token coord">--- a/Directory.Build.props</span>
+<span class="token coord">+++ b/Directory.Build.props</span>
+<span class="token coord">@@ -43,6 +43,8 @@</span>
+<span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">    &lt;XamarinAndroidToolsDirectory   Condition=" '$(XamarinAndroidToolsDirectory)' == '' ">$(MSBuildThisFileDirectory)external\xamarin-android-tools&lt;/XamarinAndroidToolsDirectory>
+</span><span class="token prefix unchanged"> </span><span class="token line">  &lt;/PropertyGroup>
+</span><span class="token prefix unchanged"> </span><span class="token line">  &lt;PropertyGroup>
+</span></span><span class="token inserted-sign inserted"><span class="token prefix inserted">+</span><span class="token line">    &lt;JavaCPath>/usr/lib/jvm/java-8-openjdk-amd64/bin/javac&lt;/JavaCPath>
+</span><span class="token prefix inserted">+</span><span class="token line">    &lt;JarPath>/usr/lib/jvm/java-8-openjdk-amd64/bin/jar&lt;/JarPath>
+</span></span><span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">    &lt;JavacSourceVersion Condition=" '$(JavacSourceVersion)' == '' ">1.8&lt;/JavacSourceVersion>
+</span><span class="token prefix unchanged"> </span><span class="token line">    &lt;JavacTargetVersion Condition=" '$(JavacTargetVersion)' == '' ">1.8&lt;/JavacTargetVersion>
+</span><span class="token prefix unchanged"> </span><span class="token line">    &lt;_BootClassPath Condition=" '$(JreRtJarPath)' != '' ">-bootclasspath "$(JreRtJarPath)"&lt;/_BootClassPath>
+</span></span>diff --git a/samples/Hello/Program.cs b/samples/Hello/Program.cs
+index 6ffacbb..9f45fac 100644
+<span class="token coord">--- a/samples/Hello/Program.cs</span>
+<span class="token coord">+++ b/samples/Hello/Program.cs</span>
+@@ -10,6 +10,7 @@ namespace Hello
+<span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">               public static unsafe void Main (string[] args)
+</span><span class="token prefix unchanged"> </span><span class="token line">               &#123;
+</span><span class="token prefix unchanged"> </span><span class="token line">                       Console.WriteLine ("Hello World!");
+</span></span><span class="token inserted-sign inserted"><span class="token prefix inserted">+</span><span class="token line">                       JreRuntime.Initialize("/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so");
+</span></span><span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">                       try &#123;
+</span><span class="token prefix unchanged"> </span><span class="token line">                               var ignore = JniRuntime.CurrentRuntime;
+</span><span class="token prefix unchanged"> </span><span class="token line">                       &#125; catch (InvalidOperationException e) &#123;
+</span></span>diff --git a/src/Java.Interop/Java.Interop/JniRuntime.cs b/src/Java.Interop/Java.Interop/JniRuntime.cs
+index 6de9021..f9fa0de 100644
+<span class="token coord">--- a/src/Java.Interop/Java.Interop/JniRuntime.cs</span>
+<span class="token coord">+++ b/src/Java.Interop/Java.Interop/JniRuntime.cs</span>
+@@ -149,7 +149,8 @@ namespace Java.Interop
+<span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">                               Debug.Assert (count == 0);
+</span><span class="token prefix unchanged"> </span><span class="token line">                               var available   = GetAvailableInvocationPointers ().FirstOrDefault ();
+</span><span class="token prefix unchanged"> </span><span class="token line">                               if (available == IntPtr.Zero)
+</span></span><span class="token deleted-sign deleted"><span class="token prefix deleted">-</span><span class="token line">                                       throw new NotSupportedException ("No available Java runtime to attach to. Please create one.");
+</span></span><span class="token inserted-sign inserted"><span class="token prefix inserted">+</span><span class="token line">                                       return null;
+</span><span class="token prefix inserted">+</span><span class="token line">                                       //throw new NotSupportedException ("No available Java runtime to attach to. Please create one.");
+</span></span><span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">                               var options     = new CreationOptions () &#123;
+</span><span class="token prefix unchanged"> </span><span class="token line">                                       DestroyRuntimeOnDispose = false,
+</span><span class="token prefix unchanged"> </span><span class="token line">                                       InvocationPointer       = available,
+</span></span>diff --git a/src/Java.Runtime.Environment/Java.Interop/JreRuntime.cs b/src/Java.Runtime.Environment/Java.Interop/JreRuntime.cs
+index ea1489f..9ca06b0 100644
+<span class="token coord">--- a/src/Java.Runtime.Environment/Java.Interop/JreRuntime.cs</span>
+<span class="token coord">+++ b/src/Java.Runtime.Environment/Java.Interop/JreRuntime.cs</span>
+@@ -72,6 +72,14 @@ namespace Java.Interop &#123;
+
+<span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">       public class JreRuntime : JniRuntime
+</span><span class="token prefix unchanged"> </span><span class="token line">       &#123;
+</span></span><span class="token inserted-sign inserted"><span class="token prefix inserted">+</span><span class="token line">               public static void Initialize(string path)
+</span><span class="token prefix inserted">+</span><span class="token line">               &#123;
+</span><span class="token prefix inserted">+</span><span class="token line">                       int r = NativeMethods.java_interop_jvm_load (path);
+</span><span class="token prefix inserted">+</span><span class="token line">                       if (r != 0) &#123;
+</span><span class="token prefix inserted">+</span><span class="token line">                               throw new Exception ($"Could not load JVM path `&#123;path&#125;` (&#123;r&#125;)!");
+</span><span class="token prefix inserted">+</span><span class="token line">                       &#125;
+</span><span class="token prefix inserted">+</span><span class="token line">               &#125;
+</span><span class="token prefix inserted">+</span><span class="token line">
+</span></span><span class="token unchanged"><span class="token prefix unchanged"> </span><span class="token line">               static int CreateJavaVM (out IntPtr javavm, out IntPtr jnienv, ref JavaVMInitArgs args)
+</span><span class="token prefix unchanged"> </span><span class="token line">               &#123;
+</span><span class="token prefix unchanged"> </span><span class="token line">                       return NativeMethods.java_interop_jvm_create (out javavm, out jnienv, ref args);</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>另外，OpenJDK11应该也是可用的，不过得注意JavacSourceVersion和JavacTargetVersion=11，由于使用的部分代码还是java8标准所以建议继续JavacSourceVersion=1.8。暂时还没实验jdk11。</p>
+<p>文件差不多编辑完了，来编译。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">make</span> src/Java.Runtime.Environment/Java.Runtime.Environment.dll.config
+<span class="token function">make</span>
+mono bin/TestDebug/Hello.exe<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>此时会显示运行成功的样子。如果没成功，那就是我忘了哪个步骤没写（逃）</p>
+<pre class="line-numbers language-none"><code class="language-none">Hello World!
+Part 2!
+# JniEnvironment.EnvironmentPointer&#x3D;94212541059552
+vm.SafeHandle&#x3D;140206052962432
+java.lang.Object&#x3D;0x55af91090e50&#x2F;L
+hashcode&#x3D;1735600054
+WITHIN: GetCreatedJavaVMs: 140206052962432
+POST: GetCreatedJavaVMs: 140206052962432<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>接下来的文章将大致介绍如何在C#中直接调用Java代码，而不是JniType一顿操作。</p>
+
+  <p></p>
+  
+
+
+          <div class="row mt-2">
+  
+    <div class="eight columns">
+      <p id="madewith">
+        <a class="footer-link" href="https://hexo.io" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="Hexo.io">自豪地采用Hexo<!--和https://github.com/adisaktijrs/hexo-theme-minima/--></a>
+        |
+        <a class="footer-link" href="http://www.beian.miit.gov.cn/" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="工信部备案">皖ICP备17014812号-1</a>
+    </div>
+
+    <!-- Sepcial thanks to https://simpleicons.org/ for the icons -->
+    <div class="four columns mb-3 posisi" >
+      
+      <a class="ml-0 footer-link icon" href="https://github.com/yang-er" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="GitHub">
+        <svg class="github svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      </a>
+      
+
+      
+      <a class="ml-0 footer-link icon" href="https://www.linkedin.com/in/%E8%89%AF%E6%AD%A3-%E6%9D%A8-0810451a4/" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="LinkedIn">
+        <svg class="linkedin svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>LinkedIn</title><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      
+
+      
+
+      
+      <a class="ml-0 footer-link icon" id="mailuna" href="#" data-anuliam="tFWasR3b6kGQ5Fmbn1SZy5yYv1GI" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="Email">
+        <svg class="mailru svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Mail</title><path d="M15.61 12c0 1.99-1.62 3.61-3.61 3.61-1.99 0-3.61-1.62-3.61-3.61 0-1.99 1.62-3.61 3.61-3.61 1.99 0 3.61 1.62 3.61 3.61M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12c2.424 0 4.761-.722 6.76-2.087l.034-.024-1.617-1.879-.027.017A9.494 9.494 0 0 1 12 21.54c-5.26 0-9.54-4.28-9.54-9.54 0-5.26 4.28-9.54 9.54-9.54 5.26 0 9.54 4.28 9.54 9.54a9.63 9.63 0 0 1-.225 2.05c-.301 1.239-1.169 1.618-1.82 1.568-.654-.053-1.42-.52-1.426-1.661V12A6.076 6.076 0 0 0 12 5.93 6.076 6.076 0 0 0 5.93 12 6.076 6.076 0 0 0 12 18.07a6.02 6.02 0 0 0 4.3-1.792 3.9 3.9 0 0 0 3.32 1.805c.874 0 1.74-.292 2.437-.821.719-.547 1.256-1.336 1.553-2.285.047-.154.135-.504.135-.507l.002-.013c.175-.76.253-1.52.253-2.457 0-6.617-5.383-12-12-12"/></svg>
+      </a>
+      
+
+    </div>
+  
+</div>
+
+<script>
+  (function () {
+    const mailuna = document.getElementById('mailuna');
+    const real = mailuna.attributes['data-anuliam'].value.split('').reverse().join('');
+    mailuna.href = atob(real).split('').reverse().join('').trim();
+  })();
+</script>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+  <script src="/js/nanobar.min.js"></script>
+  <script>
+    var options = {
+      classname: 'nanobar',
+      id: 'myNanobar'
+    };
+    var nanobar = new Nanobar(options);
+    nanobar.go(30);
+    nanobar.go(76);
+    nanobar.go(100);
+  </script>
+
+</body>
+
+</html>

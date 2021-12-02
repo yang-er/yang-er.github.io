@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Minima -->
+  <!-- Hexo theme created by @adisaktijrs -->
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+
+  
+  <title>EFCore查缺补漏（一）：依赖注入</title>
+  
+  <link rel="canonical" href="https://www.90yang.com/efcore-1-dependency-injection/">
+  
+  <meta name="description" content="前段时间，在群里潜水的时候，看见有个群友的报错日志是这样的： An unhandled exception was thrown by the application. System.OutOfMemoryException: Exception of type &amp;#39;System.OutOfM">
+  
+  
+  <meta name="author" content="小羊">
+  <meta property="og:site_name" content="小羊儿的心情天空" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="EFCore查缺补漏（一）：依赖注入" />
+  
+  <meta property="og:description" content="前段时间，在群里潜水的时候，看见有个群友的报错日志是这样的： An unhandled exception was thrown by the application. System.OutOfMemoryException: Exception of type &amp;#39;System.OutOfM">
+  
+  <meta property="og:url" content="https://www.90yang.com/efcore-1-dependency-injection/" />
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Preload fonts
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="preload" href="../fonts/dm-serif-display-v4-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/inter-v2-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  
+<link rel="stylesheet" href="/css/normalize.css">
+
+  
+<link rel="stylesheet" href="/css/skeleton.css">
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+  
+<link rel="stylesheet" href="/css/prism-dark.css">
+
+  
+<link rel="stylesheet" href="/css/prism-line-numbers.css">
+
+  <!-- User css -->
+  
+  
+<link rel="stylesheet" href="/css/user.css">
+
+  
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="">
+
+  <!-- Custom Theme Color Style
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <style>
+  a:not(.icon) {
+    text-decoration-color: #0FA0CE;
+    background-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 50%,
+      #0FA0CE 50%
+    );
+  }
+  blockquote {
+    border-left: 8px solid #0FA0CE;
+  }
+  .nanobar .bar {
+    background: #0FA0CE;
+  }
+  .button.button-primary:hover,
+  button.button-primary:hover,
+  input[type="submit"].button-primary:hover,
+  input[type="reset"].button-primary:hover,
+  input[type="button"].button-primary:hover,
+  .button.button-primary:focus,
+  button.button-primary:focus,
+  input[type="submit"].button-primary:focus,
+  input[type="reset"].button-primary:focus,
+  input[type="button"].button-primary:focus {
+    background-color: #0FA0CE;
+    border-color: #0FA0CE;
+  }
+  input[type="email"]:focus,
+  input[type="number"]:focus,
+  input[type="search"]:focus,
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="password"]:focus,
+  textarea:focus,
+  select:focus {
+    border: 1px solid #0FA0CE;
+  }
+</style>
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-math@4.0.0/dist/style.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 5.4.0"></head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div>
+
+        <div class="row">
+  <div class="two columns" style="max-width: 50px">
+    <h1 class="mt-2 mode">
+      <div onclick=setDarkMode(true) id="darkBtn">🌑</div>
+      <div onclick=setDarkMode(false) id="lightBtn" class=hidden>☀️</div>
+      <script >
+        if (localStorage.getItem('preferredTheme') == 'dark') {
+          setDarkMode(true)
+        }
+        function setDarkMode(isDark) {
+          var darkBtn = document.getElementById('darkBtn')
+          var lightBtn = document.getElementById('lightBtn')
+          if (isDark) {
+            lightBtn.style.display = "block"
+            darkBtn.style.display = "none"
+            localStorage.setItem('preferredTheme', 'dark');
+          } else {
+            lightBtn.style.display = "none"
+            darkBtn.style.display = "block"
+            localStorage.removeItem('preferredTheme');
+          }
+          document.body.classList.toggle("darkmode");
+        }
+      </script>
+    </h1>
+  </div>
+
+  <div class="six columns ml-1">
+    <h1 class="mt-2" style="font-weight: 700;">
+      小羊儿的心情天空
+    </h1>
+  </div>
+
+  <div class="twelve columns">
+    <div class="row">
+      <div class="nine columns left">
+        <a href="/">我的博客</a>
+        
+          
+          <a target="_blank" rel="noopener" href="https://www.xylab.fun/" class="ml">我的实验</a>
+          
+        
+          
+          <a href="/links" class="ml">友情链接</a>
+          
+        
+      </div>
+    </div>
+    <hr style="margin-bottom: 2.6rem">
+  </div>
+</div>
+
+        <div class="trans">
+            <h2>EFCore查缺补漏（一）：依赖注入</h2>
+  <p class="mbb-2">Feb 4, 2021 由 小羊</p>
+
+  <p>前段时间，在群里潜水的时候，看见有个群友的报错日志是这样的：</p>
+<pre class="line-numbers language-none"><code class="language-none">An unhandled exception was thrown by the application. System.OutOfMemoryException: Exception of type &#39;System.OutOfMemoryException&#39; was thrown.
+   at System.Threading.Thread.StartInternal()
+   at Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider..ctor(IOptionsMonitor&#96;1 options)
+   at …
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at …
+   at Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService[T](IServiceProvider provider)
+   at Microsoft.Extensions.Logging.LoggerFactory.Create(Action&#96;1 configure)
+   at xxxxxxx. &lt;&gt;c__DisplayClass2_0.&lt;AddXxxDbContext&gt;b__0(DbContextOptionsBuilder builder)
+   at Microsoft.Extensions.DependencyInjection.EntityFrameworkServiceCollectionExtensions.CreateDbContextOptions[TContext](IServiceProvider applicationServiceProvider, Action&#96;2 optionsAction)
+   at …<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>嗯……内存满了？是在构建 ConsoleLoggerProvider 的时候报的异常？是由依赖注入容器产生的？再上层是 AddXxxDbContext？</p>
+<p>好吧，看来一定是位没研究过 EFCore 源码也没看过与本文类似内容的仁兄……我甚至能反推出他写的代码：</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">Startup</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">public</span> <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token function">ConfigureServices</span><span class="token punctuation">(</span><span class="token class-name">IServiceCollection</span> services<span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        services<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">AddDbContext</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>MyDbContext<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>options <span class="token operator">=></span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">// ...</span>
+            options<span class="token punctuation">.</span><span class="token function">UseLoggerFactory</span><span class="token punctuation">(</span>LoggerFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span>b <span class="token operator">=></span> b<span class="token punctuation">.</span><span class="token function">AddConsole</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">AddDebug</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        
+        <span class="token comment">// ...</span>
+    <span class="token punctuation">&#125;</span>
+    
+    <span class="token comment">// ...</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>看，这个调用堆栈是不是对上味儿了。</p>
+<p>接下来我将介绍这个bug产生的原因，并带各位看官一窥 DbContext、DbContextOptions、EFCore内部类的大致生命周期。</p>
+<p>本文所有知识均基于 EFCore 3.1 版本，EFCore 5.0 对这部分几乎没有改动。</p>
+<p>另外，如果有兴趣调试 EFCore 的源码，可以 clone 下来某个 release 版本，然后保留 EFCore/Abstractions/Analyzers/Relational/SqlServer 这几个项目，然后开一个自己的命令行或者单元测试项目，就可以尽情遨游 EFCore 的源码了。</p>
+<p>读代码前，请储备一定量的英文知识和自信。很多代码的意思都写在变量名和函数名上了，大部分源代码读起来并不是什么很难的事情：）</p>
+<h4 id="谁实例化了-dbcontext"><a class="markdownIt-Anchor" href="#谁实例化了-dbcontext"></a> 谁实例化了 DbContext？</h4>
+<p>常见有两种方式来构建 DbContext，一种是直接拿来 new 一个，构造函数传入 DbContextOptions 或者什么都不传入；一种是在 <a target="_blank" rel="noopener" href="http://ASP.NET">ASP.NET</a> Core 中常用的 <code>services.AddDbContext&lt;...&gt;(...)</code>，然后通过某个服务的构造函数或者 <code>IServiceProvider</code> 取得该 DbContext 实例。后者要求该 DbContext 只实现一个构造函数，该构造函数只接受一个参数 <code>DbContextOptions&lt;MyDbContext&gt;</code>。</p>
+<p>关于后一种构造方式，我们将父依赖注入容器称为 Application ServiceProvider。</p>
+<p>首先需要明确的一点是，DbContext 的构造是由父依赖注入容器实现的。而构造函数要求检测仅仅是 EFCore 那个拓展函数进行的检查。</p>
+<p>我们先来看各个 <code>AddDbContext</code> 的核心操作函数吧。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token return-type class-name">IServiceCollection</span> <span class="token generic-method"><span class="token function">AddDbContext</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TContextService<span class="token punctuation">,</span> TContextImplementation<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token keyword">this</span> <span class="token class-name">IServiceCollection</span> serviceCollection<span class="token punctuation">,</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">CanBeNull</span></span><span class="token punctuation">]</span> <span class="token class-name">Action<span class="token punctuation">&lt;</span>IServiceProvider<span class="token punctuation">,</span> DbContextOptionsBuilder<span class="token punctuation">></span></span> optionsAction<span class="token punctuation">,</span>
+    <span class="token class-name">ServiceLifetime</span> contextLifetime <span class="token operator">=</span> ServiceLifetime<span class="token punctuation">.</span>Scoped<span class="token punctuation">,</span>
+    <span class="token class-name">ServiceLifetime</span> optionsLifetime <span class="token operator">=</span> ServiceLifetime<span class="token punctuation">.</span>Scoped<span class="token punctuation">)</span>
+    <span class="token keyword">where</span> <span class="token class-name">TContextImplementation</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token class-name">DbContext</span><span class="token punctuation">,</span> <span class="token class-name">TContextService</span></span>
+<span class="token punctuation">&#123;</span>
+    Check<span class="token punctuation">.</span><span class="token function">NotNull</span><span class="token punctuation">(</span>serviceCollection<span class="token punctuation">,</span> <span class="token keyword">nameof</span><span class="token punctuation">(</span>serviceCollection<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>contextLifetime <span class="token operator">==</span> ServiceLifetime<span class="token punctuation">.</span>Singleton<span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        optionsLifetime <span class="token operator">=</span> ServiceLifetime<span class="token punctuation">.</span>Singleton<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>optionsAction <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token generic-method"><span class="token function">CheckContextConstructors</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TContextImplementation<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token generic-method"><span class="token function">AddCoreServices</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TContextImplementation<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>serviceCollection<span class="token punctuation">,</span> optionsAction<span class="token punctuation">,</span> optionsLifetime<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    serviceCollection<span class="token punctuation">.</span><span class="token function">TryAdd</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token constructor-invocation class-name">ServiceDescriptor</span><span class="token punctuation">(</span><span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">TContextService</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">TContextImplementation</span><span class="token punctuation">)</span><span class="token punctuation">,</span> contextLifetime<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> serviceCollection<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>在这里可以看到：</p>
+<ul>
+<li>我们可以修改 <code>DbContextOptions</code> 和 <code>DbContext</code> 的生命周期为 Singleton 或者 Transient，而不是默认的 Scoped</li>
+<li>当检测到对 <code>DbContextOptionsBuilder</code> 的调用时，会检查构造函数是否符合要求</li>
+<li><code>TContextImplementation</code> 是被构造的 DbContext 实例类型，直接由该依赖注入容器构造</li>
+</ul>
+<p>而 <code>AddCoreServices</code> 函数则是将 <code>DbContextOptions</code> 实例注入容器。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token generic-method"><span class="token function">AddCoreServices</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TContextImplementation<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token class-name">IServiceCollection</span> serviceCollection<span class="token punctuation">,</span>
+    <span class="token class-name">Action<span class="token punctuation">&lt;</span>IServiceProvider<span class="token punctuation">,</span> DbContextOptionsBuilder<span class="token punctuation">></span></span> optionsAction<span class="token punctuation">,</span>
+    <span class="token class-name">ServiceLifetime</span> optionsLifetime<span class="token punctuation">)</span>
+    <span class="token keyword">where</span> <span class="token class-name">TContextImplementation</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token class-name">DbContext</span></span>
+<span class="token punctuation">&#123;</span>
+    serviceCollection<span class="token punctuation">.</span><span class="token function">TryAdd</span><span class="token punctuation">(</span>
+        <span class="token keyword">new</span> <span class="token constructor-invocation class-name">ServiceDescriptor</span><span class="token punctuation">(</span>
+            <span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">DbContextOptions<span class="token punctuation">&lt;</span>TContextImplementation<span class="token punctuation">></span></span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            p <span class="token operator">=></span> <span class="token generic-method"><span class="token function">CreateDbContextOptions</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TContextImplementation<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>p<span class="token punctuation">,</span> optionsAction<span class="token punctuation">)</span><span class="token punctuation">,</span>
+            optionsLifetime<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    serviceCollection<span class="token punctuation">.</span><span class="token function">Add</span><span class="token punctuation">(</span>
+        <span class="token keyword">new</span> <span class="token constructor-invocation class-name">ServiceDescriptor</span><span class="token punctuation">(</span>
+            <span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">DbContextOptions</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            p <span class="token operator">=></span> p<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">GetRequiredService</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>DbContextOptions<span class="token punctuation">&lt;</span>TContextImplementation<span class="token punctuation">></span><span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+            optionsLifetime<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>在这里可以看到：</p>
+<ul>
+<li>容器中可能具有很多个 <code>DbContextOptions</code> 实例，可以通过 <code>IEnumerable&lt;DbContextOptions&gt;</code> 拿到全部；这一设计是由于一个依赖注入容器中可以加入多个 <code>DbContext</code> 类型</li>
+<li>对于每一个特性类型的 DbContext （以下写为 MyDbContext），都会有一个 <code>DbContextOptions&lt;MyDbContext&gt;</code> 与之对应</li>
+<li>我们在构造函数处用到的 <code>DbContextOptionsBuilder</code> 和 <code>Microsoft.Extensions.Options</code> 其实没什么关系，不能用 <code>IOptions&lt;TOptions&gt;</code> 拿到，只是恰巧都叫 <code>XxxxxxOptions</code> 而已</li>
+<li>每次新构造 DbContextOptions 实例时，都会使用传入的 <code>Action&lt;IServiceProvider, DbContextOptionsBuilder&gt;</code> 函数；此时第一个参数显然是当前的依赖注入容器，例如发生 HTTP 请求时 <code>HttpContext.RequestService</code> 的容器 Scope；或者 DbContextOptions 单例注入时， <code>IHost.Services</code> 这种容器根</li>
+<li>实际构建结果是由 <code>CreateDbContextOptions</code> 函数创造的</li>
+</ul>
+<p>那么再来看看 <code>CreateDbContextOptions</code> 的实现。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token return-type class-name">DbContextOptions<span class="token punctuation">&lt;</span>TContext<span class="token punctuation">></span></span> <span class="token generic-method"><span class="token function">CreateDbContextOptions</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TContext<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token class-name">IServiceProvider</span> applicationServiceProvider<span class="token punctuation">,</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">CanBeNull</span></span><span class="token punctuation">]</span> <span class="token class-name">Action<span class="token punctuation">&lt;</span>IServiceProvider<span class="token punctuation">,</span> DbContextOptionsBuilder<span class="token punctuation">></span></span> optionsAction<span class="token punctuation">)</span>
+    <span class="token keyword">where</span> <span class="token class-name">TContext</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token class-name">DbContext</span></span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> builder <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">DbContextOptionsBuilder<span class="token punctuation">&lt;</span>TContext<span class="token punctuation">></span></span><span class="token punctuation">(</span>
+        <span class="token keyword">new</span> <span class="token constructor-invocation class-name">DbContextOptions<span class="token punctuation">&lt;</span>TContext<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token constructor-invocation class-name">Dictionary<span class="token punctuation">&lt;</span>Type<span class="token punctuation">,</span> IDbContextOptionsExtension<span class="token punctuation">></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    builder<span class="token punctuation">.</span><span class="token function">UseApplicationServiceProvider</span><span class="token punctuation">(</span>applicationServiceProvider<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    optionsAction<span class="token punctuation">?.</span><span class="token function">Invoke</span><span class="token punctuation">(</span>applicationServiceProvider<span class="token punctuation">,</span> builder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> builder<span class="token punctuation">.</span>Options<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>可以看到，<code>DbContextOptionsBuilder.UseApplicationServiceProvider</code> 实际上是被执行过的，并且恰好指向父依赖注入容器。</p>
+<p>此时会发现，我们在单元测试时，不创建依赖注入容器而直接实例化 DbContext 的时候，是没有这一步的。这就是为什么两者有时表现不同，例如直接实例化 Builder 拿到 Options，并且没有 <code>UseLoggerFactory</code> 和 <code>UseApplicationServiceProvider</code> 时，它不会有日志输出。至于日志那部分是怎么构建的呢，暂且按下不表。</p>
+<p>而我们会看到网上有些文章说，因为某某原因，选择 <code>services.AddEntityFrameworkSqlServer()</code> 然后 <code>options.UseInternalServiceProvider(..)</code> 的，其实是将两个依赖注入容器合二为一了。具体好坏，还是使用者自行定夺。</p>
+<p><img src="general.png" alt="" /></p>
+<h4 id="dbcontext-实例化时做了些什么"><a class="markdownIt-Anchor" href="#dbcontext-实例化时做了些什么"></a> DbContext 实例化时做了些什么？</h4>
+<p>看到上面那个图了吗。我们会发现，原来 EFCore 的内部容器也是分 Singleton 和 Scoped 的。</p>
+<p>先来看看 DbContext 的这样一个 private 成员属性 InternalServiceProvider。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">private</span> <span class="token return-type class-name">IServiceProvider</span> InternalServiceProvider
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">get</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token function">CheckDisposed</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>_contextServices <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">return</span> _contextServices<span class="token punctuation">.</span>InternalServiceProvider<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>_initializing<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">InvalidOperationException</span><span class="token punctuation">(</span>CoreStrings<span class="token punctuation">.</span>RecursiveOnConfiguring<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">try</span>
+        <span class="token punctuation">&#123;</span>
+            _initializing <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> optionsBuilder <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">DbContextOptionsBuilder</span><span class="token punctuation">(</span>_options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            <span class="token function">OnConfiguring</span><span class="token punctuation">(</span>optionsBuilder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>_options<span class="token punctuation">.</span>IsFrozen
+                <span class="token operator">&amp;&amp;</span> <span class="token operator">!</span><span class="token function">ReferenceEquals</span><span class="token punctuation">(</span>_options<span class="token punctuation">,</span> optionsBuilder<span class="token punctuation">.</span>Options<span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">InvalidOperationException</span><span class="token punctuation">(</span>CoreStrings<span class="token punctuation">.</span>PoolingOptionsModified<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> options <span class="token operator">=</span> optionsBuilder<span class="token punctuation">.</span>Options<span class="token punctuation">;</span>
+
+            _serviceScope <span class="token operator">=</span> ServiceProviderCache<span class="token punctuation">.</span>Instance<span class="token punctuation">.</span><span class="token function">GetOrAdd</span><span class="token punctuation">(</span>options<span class="token punctuation">,</span> <span class="token named-parameter punctuation">providerRequired</span><span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span>
+                <span class="token punctuation">.</span><span class="token generic-method"><span class="token function">GetRequiredService</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>IServiceScopeFactory<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+                <span class="token punctuation">.</span><span class="token function">CreateScope</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> scopedServiceProvider <span class="token operator">=</span> _serviceScope<span class="token punctuation">.</span>ServiceProvider<span class="token punctuation">;</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> contextServices <span class="token operator">=</span> scopedServiceProvider<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">GetService</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>IDbContextServices<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            contextServices<span class="token punctuation">.</span><span class="token function">Initialize</span><span class="token punctuation">(</span>scopedServiceProvider<span class="token punctuation">,</span> options<span class="token punctuation">,</span> <span class="token keyword">this</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            _contextServices <span class="token operator">=</span> contextServices<span class="token punctuation">;</span>
+
+            DbContextDependencies<span class="token punctuation">.</span>InfrastructureLogger<span class="token punctuation">.</span><span class="token function">ContextInitialized</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">,</span> options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+        <span class="token keyword">finally</span>
+        <span class="token punctuation">&#123;</span>
+            _initializing <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">return</span> _contextServices<span class="token punctuation">.</span>InternalServiceProvider<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>可以观察到如下事实：</p>
+<ul>
+<li>除了外部的 <code>DbContextOptions</code> 实例，内部可能也会用 <code>OnConfiguring</code> 函数修改这个 Options，这样保证了两者的配置都会被应用；当使用 <code>DbContextPool</code> 时，内部函数是不能修改配置的</li>
+<li>DbContext 的每个执行指令都是在内部容器的一个 Service Scope 中执行</li>
+<li>每次创建 Service Scope 之后，会取出其中 Scoped 服务 <code>IDbContextServices</code>，并将这个 DbContext 实例和 DbContextOptions 保存进这个 Service Scope</li>
+<li>内部容器的获取是由 <code>ServiceProviderCache.Instance.GetOrAdd(options, providerRequired: true)</code> 操作的；此时拿到的一般都是内部容器的根容器</li>
+</ul>
+<p>这个 <code>ServiceProviderCache</code> 的源码处于 <code>src\EFCore\Internal\ServiceProviderCache.cs</code>。</p>
+<p>在解析 <code>GetOrAdd</code> 函数之前，我们需要了解这样一个结构：<code>IDbContextOptionsExtension</code>。这个结构具有几个基本功能：</p>
+<ul>
+<li>向依赖注入容器注册依赖服务</li>
+<li>验证当前 <code>IDbContextOptions</code> 是否正确配置，是否具有冲突</li>
+<li>告诉 EFCore 该拓展是否提供数据库底层功能（即 Database Provider，例如提供 SQL Server 相关依赖、数据库连接信息等）</li>
+<li>提供调试信息、日志片段（就是初始化 DbContext 时出现的类似 <code>initialized 'MyDbContext' using provider 'Microsoft.EntityFrameworkCore.SqlServer' with options:...</code> 的地方添加的）</li>
+<li>实现函数 <code>long GetServiceProviderHashCode()</code>，当这个 EFCore 插件包括某些不太方便通过 Scoped 服务修改的 Singleton 信息时（例如 SensitiveDataLoggingEnabled），这里应该返回一个与这些配置有关的值，同时保证：对于相同的配置，返回相同的值；对于不同的配置，返回不同的值。</li>
+</ul>
+<p>例如 DbContextOptionsBuilder 中很多函数都是修改 <code>CoreOptionsExtension</code> 完成的。</p>
+<p>再看看 EFCore 的内部容器中有哪些类，其对应生命周期是什么样的。此处建议参考 <code>src/EFCore/Infrastructure/EntityFrameworkServicesBuilder.cs</code>。这个代码文件中规定了每个类的生命周期，以及是否可以注册多个。</p>
+<p>可以注意到，有这样一些类有着对应的生命周期：</p>
+<pre class="line-numbers language-none"><code class="language-none">Singleton:
+- IDatabaseProvider
+- IDbSetFinder
+- IModelCustomizer
+- ILoggingOptions
+- IMemoryCache
+
+Scoped:
+- IInterceptors
+- ILoggerFactory
+- IModel
+- IDbContextServices
+- IChangeTrackerFactory
+- IDiagnosticsLogger&lt;&gt;
+- IQueryCompiler
+- IQueryContextFactory
+- IAsyncQueryProvider
+- ICurrentDbContext
+- IDbContextOptions<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>接下来看拿到内部容器的逻辑。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">virtual</span> <span class="token return-type class-name">IServiceProvider</span> <span class="token function">GetOrAdd</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token class-name">IDbContextOptions</span> options<span class="token punctuation">,</span> <span class="token class-name"><span class="token keyword">bool</span></span> providerRequired<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> coreOptionsExtension <span class="token operator">=</span> options<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">FindExtension</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>CoreOptionsExtension<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> internalServiceProvider <span class="token operator">=</span> coreOptionsExtension<span class="token punctuation">?.</span>InternalServiceProvider<span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>internalServiceProvider <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token function">ValidateOptions</span><span class="token punctuation">(</span>options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token class-name"><span class="token keyword">var</span></span> optionsInitializer <span class="token operator">=</span> internalServiceProvider<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">GetService</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>ISingletonOptionsInitializer<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>optionsInitializer <span class="token operator">==</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">InvalidOperationException</span><span class="token punctuation">(</span>CoreStrings<span class="token punctuation">.</span>NoEfServices<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>providerRequired<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            optionsInitializer<span class="token punctuation">.</span><span class="token function">EnsureInitialized</span><span class="token punctuation">(</span>internalServiceProvider<span class="token punctuation">,</span> options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">return</span> internalServiceProvider<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>coreOptionsExtension<span class="token punctuation">?.</span>ServiceProviderCachingEnabled <span class="token operator">==</span> <span class="token boolean">false</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">return</span> <span class="token function">BuildServiceProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>ServiceProvider<span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token class-name"><span class="token keyword">var</span></span> key <span class="token operator">=</span> options<span class="token punctuation">.</span>Extensions
+        <span class="token punctuation">.</span><span class="token function">OrderBy</span><span class="token punctuation">(</span>e <span class="token operator">=></span> e<span class="token punctuation">.</span><span class="token function">GetType</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>Name<span class="token punctuation">)</span>
+        <span class="token punctuation">.</span><span class="token function">Aggregate</span><span class="token punctuation">(</span><span class="token number">0L</span><span class="token punctuation">,</span> <span class="token punctuation">(</span>t<span class="token punctuation">,</span> e<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span>t <span class="token operator">*</span> <span class="token number">397</span><span class="token punctuation">)</span> <span class="token operator">^</span> <span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token keyword">long</span><span class="token punctuation">)</span>e<span class="token punctuation">.</span><span class="token function">GetType</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">GetHashCode</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">397</span><span class="token punctuation">)</span> <span class="token operator">^</span> e<span class="token punctuation">.</span>Info<span class="token punctuation">.</span><span class="token function">GetServiceProviderHashCode</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">return</span> _configurations<span class="token punctuation">.</span><span class="token function">GetOrAdd</span><span class="token punctuation">(</span>key<span class="token punctuation">,</span> k <span class="token operator">=></span> <span class="token function">BuildServiceProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>ServiceProvider<span class="token punctuation">;</span>
+
+    <span class="token return-type class-name"><span class="token punctuation">(</span>IServiceProvider ServiceProvider<span class="token punctuation">,</span> IDictionary<span class="token punctuation">&lt;</span><span class="token keyword">string</span><span class="token punctuation">,</span> <span class="token keyword">string</span><span class="token punctuation">></span> DebugInfo<span class="token punctuation">)</span></span> <span class="token function">BuildServiceProvider</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token range operator">..</span><span class="token punctuation">.</span> 此处省略
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>嗯，这个逻辑很好盘，而且 99.99% 的情况下大家都只使用了默认配置，即：通过 <code>GetServiceProviderHashCode</code> 函数来计算哈希值，然后从 <code>ServiceProviderCache</code> 内部的一个缓存表中取得之前创建的容器，或者构建一个新的容器。</p>
+<p>我们可能会发现，第一次使用 DbContext 的时候，加载时间很长；经过两三秒才能实例化完成；第二次使用的时候，基本上就是瞬间实例化成功了。但我们通过在上层依赖注入容器的 <code>AddDbContext</code> 处做手脚，或者通过重写 <code>OnConfiguring</code> 函数，更改了 <code>DbContextOptions</code> 之后，或者实例化另一个不同类型的 DbContext，又会花很久时间才能实例化成功。应证了上面的说法。</p>
+<p>如果每次构建 DbContext 实例时都创建一个全新的内部容器，这样会有大量的性能浪费。</p>
+<p>那么我们再来观察一下 <code>DbContextOptionsBuilder</code> 有哪些方法。</p>
+<pre class="line-numbers language-none"><code class="language-none">- UseSqlServer &#x2F; UseNpgSql &#x2F; UseInMemoryDatabase
+- Use第三方插件1&#x2F;2&#x2F;3
+- EnableDetailedErrors
+- UseInternalServiceProvider
+- EnableSensitiveDataLogging
+- EnableServiceProviderCaching
+- ConfigureWarnings
+- UseMemoryCache
+- ReplaceService
+--- 一条朴实无华的分割线 ---
+- UseModel
+- UseLoggerFactory
+- UseApplicationServiceProvider
+- UseQueryTrackingBehavior
+- AddInterceptors<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p><code>CoreOptionsExtension</code> 的 <code>long GetServiceProviderHashCode()</code> 会包括 <code>IMemoryCache</code>、<code>SensitiveDataLoggingEnabled</code>、<code>DetailedErrorsEnabled</code>、<code>WarningsConfiguration</code>、通过 <code>ReplaceService</code> 修改的那些服务。</p>
+<p>可以注意到，其中有些控制的是 Singleton 服务或者决定了实例化的结果，例如 <code>UseMemoryCache</code>、<code>UseSqlServer</code>、<code>ReplaceService</code>，如果每次拿到的 <code>DbContextOptions</code> 实例中的 <code>IMemoryCache</code> 或者数据库类型不一样，那么此时肯定需要构建一个新的依赖注入容器。而有些东西控制的是 Scoped 服务，例如 <code>UseLoggerFactory</code>、<code>UseModel</code>、数据库连接字符串，在一般场景下是不需要重新构建容器的。</p>
+<p>也就是说，如果不动态改变分割线上方的那些状态，并且你使用的第三方插件编写很科学，是不会每次都构建新的内部容器的。</p>
+<h4 id="内部容器如何取得-iloggerfactory"><a class="markdownIt-Anchor" href="#内部容器如何取得-iloggerfactory"></a> 内部容器如何取得 ILoggerFactory？</h4>
+<p>内部的服务当然是从内部容器构建的了。</p>
+<p>先以 <code>ILoggerFactory</code> 为例，看看为什么 EFCore 能拿到父容器的 <code>ILoggerFactory</code>。</p>
+<p>回到上面 <code>EntityFrameworkServicesBuilder</code>，我们可以看到一行</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token generic-method"><span class="token function">TryAdd</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>ILoggerFactory<span class="token punctuation">></span></span></span><span class="token punctuation">(</span>p <span class="token operator">=></span> ScopedLoggerFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span>p<span class="token punctuation">,</span> <span class="token keyword">null</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>转到这个函数，我们可以看到</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token return-type class-name">ScopedLoggerFactory</span> <span class="token function">Create</span><span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">NotNull</span></span><span class="token punctuation">]</span> <span class="token class-name">IServiceProvider</span> internalServiceProvider<span class="token punctuation">,</span>
+    <span class="token punctuation">[</span><span class="token attribute"><span class="token class-name">CanBeNull</span></span><span class="token punctuation">]</span> <span class="token class-name">IDbContextOptions</span> contextOptions<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> coreOptions
+        <span class="token operator">=</span> <span class="token punctuation">(</span>contextOptions <span class="token operator">??</span> internalServiceProvider<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">GetService</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>IDbContextOptions<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token punctuation">?.</span><span class="token generic-method"><span class="token function">FindExtension</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>CoreOptionsExtension<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>coreOptions <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>coreOptions<span class="token punctuation">.</span>LoggerFactory <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">ScopedLoggerFactory</span><span class="token punctuation">(</span>coreOptions<span class="token punctuation">.</span>LoggerFactory<span class="token punctuation">,</span> <span class="token named-parameter punctuation">dispose</span><span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token class-name"><span class="token keyword">var</span></span> applicationServiceProvider <span class="token operator">=</span> coreOptions<span class="token punctuation">.</span>ApplicationServiceProvider<span class="token punctuation">;</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>applicationServiceProvider <span class="token operator">!=</span> <span class="token keyword">null</span>
+            <span class="token operator">&amp;&amp;</span> applicationServiceProvider <span class="token operator">!=</span> internalServiceProvider<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token class-name"><span class="token keyword">var</span></span> loggerFactory <span class="token operator">=</span> applicationServiceProvider<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">GetService</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>ILoggerFactory<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>loggerFactory <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span>
+            <span class="token punctuation">&#123;</span>
+                <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">ScopedLoggerFactory</span><span class="token punctuation">(</span>loggerFactory<span class="token punctuation">,</span> <span class="token named-parameter punctuation">dispose</span><span class="token punctuation">:</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">&#125;</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">ScopedLoggerFactory</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token constructor-invocation class-name">LoggerFactory</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token named-parameter punctuation">dispose</span><span class="token punctuation">:</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>即：先看 <code>CoreOptionsExtension</code> 中是否有之前 <code>optionsBuilder.UseLoggerFactory</code> 指定的；如果没有，再到 <code>ApplicationServiceProvider</code> 中找一个 <code>ILoggerFactory</code>；再如果真的没有，就不用了。</p>
+<p>回顾开头的内存溢出问题：为什么呢？</p>
+<p><code>DbContextOptions</code> 未经修改的默认生命周期是 Scoped，也就是在父容器中每次实例化一个 <code>DbContextOptions</code>，就会调用一次 <code>LoggerFactory.Create(b =&gt; b.AddConsole())</code>，并且并没有照顾到它的 Dispose。而 <code>ConsoleLoggerProvider</code> 每次会建立一个新的线程去输出日志，没有被回收，于是……内存就在一次又一次请求中消耗殆尽了。</p>
+<p>再回过来想想，既然能调用到父容器的 <code>ILoggerFactory</code>，他又为什么会用 <code>LoggerFactory.Create</code> 呢？……一定是 <code>Microsoft.EntityFrameworkCore</code> 开头的日志被父容器的设置禁用了，所以没有输出。</p>
+<h4 id="如何把玩其他内部服务"><a class="markdownIt-Anchor" href="#如何把玩其他内部服务"></a> 如何把玩其他内部服务？</h4>
+<p>观察到 <code>DbContext</code> 实现了 <code>IInfrastructure&lt;IServiceProvider&gt;</code> 这一接口，这个接口要求保存一个 <code>IServiceProvider</code> 的实例，而其实现直接指向了 <code>InternalServiceProvider</code> 这一私有属性。</p>
+<p>那先谈谈这个 <code>IInfrastructure&lt;IServiceProvider&gt;</code> 接口的作用吧。这个接口同时在 <code>DbSet&lt;T&gt;</code> 和 <code>DatabaseFacade</code> 中也有实现。在 <code>Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions</code> 中，我们有一个针对这个接口的拓展函数 <code>TService GetService&lt;TService&gt;([NotNull] this IInfrastructure&lt;IServiceProvider&gt; accessor)</code>。</p>
+<p>也就是说，我们在引入 <code>Microsoft.EntityFrameworkCore.Infrastructure</code> 命名空间之后，可以通过 <code>DbContext.GetService&lt;T&gt;()</code> 来拿到一部分服务。</p>
+<p>其进一步的查找逻辑为：先在 EFCore 内部直接使用的依赖注入容器（即 <code>InternalServiceProvider</code>）中查找，再去上一层依赖注入容器中查找。</p>
+<p>这个函数在 EFCore 中用的很少，基本上只用于静态函数，或者非静态函数中传入 DbContext 实例时需要拿到某个服务时才会用到。</p>
+<p>例如，如果是在写某个 EFCore 的拓展函数，传入只有 <code>DbSet&lt;T&gt;</code> 的实例，但我们想拿到这个 <code>DbContext</code>，不用反射之类的奇怪功能，要如何拿到呢？通常可以用 <code>dbSetInstance.GetService&lt;ICurrentDbContext&gt;().Context</code> 拿到实例。</p>
+<p>好了，容器都拿到了，该咋玩咋玩吧……</p>
+<h4 id="课后习题"><a class="markdownIt-Anchor" href="#课后习题"></a> 课后习题</h4>
+<p>已知数据库模型是通过 <code>IModelCustomizer</code> 进行构建的，需要达到这样的效果：</p>
+<ul>
+<li>一个模块化的应用</li>
+<li>每个模块可以向父容器注册很多个功能类似于 <code>Action&lt;ModelBuilder&gt;</code> 的东西</li>
+<li>希望在构建数据库的 <code>IModel</code> 时，对着 <code>ModelBuilder</code> 执行这些操作</li>
+</ul>
+<p>这样可以不修改 DbContext 本身的代码，而将所需的实体信息加载到 DbContext 的 Model 里。</p>
+<p>参考答案：<a target="_blank" rel="noopener" href="https://github.com/namofun/uikit/tree/v1.0.30/src/DataAccess.Abstraction/Modeling">IDbModelSupplier设计</a> + <a target="_blank" rel="noopener" href="https://github.com/namofun/uikit/blob/v1.0.30/src/HostBuilder/DataAccessExtensions.cs#L79..L80">AddDbContext部分</a></p>
+
+  <p></p>
+  
+
+
+          <div class="row mt-2">
+  
+    <div class="eight columns">
+      <p id="madewith">
+        <a class="footer-link" href="https://hexo.io" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="Hexo.io">自豪地采用Hexo<!--和https://github.com/adisaktijrs/hexo-theme-minima/--></a>
+        |
+        <a class="footer-link" href="http://www.beian.miit.gov.cn/" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="工信部备案">皖ICP备17014812号-1</a>
+    </div>
+
+    <!-- Sepcial thanks to https://simpleicons.org/ for the icons -->
+    <div class="four columns mb-3 posisi" >
+      
+      <a class="ml-0 footer-link icon" href="https://github.com/yang-er" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="GitHub">
+        <svg class="github svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      </a>
+      
+
+      
+      <a class="ml-0 footer-link icon" href="https://www.linkedin.com/in/%E8%89%AF%E6%AD%A3-%E6%9D%A8-0810451a4/" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="LinkedIn">
+        <svg class="linkedin svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>LinkedIn</title><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      
+
+      
+
+      
+      <a class="ml-0 footer-link icon" id="mailuna" href="#" data-anuliam="tFWasR3b6kGQ5Fmbn1SZy5yYv1GI" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="Email">
+        <svg class="mailru svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Mail</title><path d="M15.61 12c0 1.99-1.62 3.61-3.61 3.61-1.99 0-3.61-1.62-3.61-3.61 0-1.99 1.62-3.61 3.61-3.61 1.99 0 3.61 1.62 3.61 3.61M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12c2.424 0 4.761-.722 6.76-2.087l.034-.024-1.617-1.879-.027.017A9.494 9.494 0 0 1 12 21.54c-5.26 0-9.54-4.28-9.54-9.54 0-5.26 4.28-9.54 9.54-9.54 5.26 0 9.54 4.28 9.54 9.54a9.63 9.63 0 0 1-.225 2.05c-.301 1.239-1.169 1.618-1.82 1.568-.654-.053-1.42-.52-1.426-1.661V12A6.076 6.076 0 0 0 12 5.93 6.076 6.076 0 0 0 5.93 12 6.076 6.076 0 0 0 12 18.07a6.02 6.02 0 0 0 4.3-1.792 3.9 3.9 0 0 0 3.32 1.805c.874 0 1.74-.292 2.437-.821.719-.547 1.256-1.336 1.553-2.285.047-.154.135-.504.135-.507l.002-.013c.175-.76.253-1.52.253-2.457 0-6.617-5.383-12-12-12"/></svg>
+      </a>
+      
+
+    </div>
+  
+</div>
+
+<script>
+  (function () {
+    const mailuna = document.getElementById('mailuna');
+    const real = mailuna.attributes['data-anuliam'].value.split('').reverse().join('');
+    mailuna.href = atob(real).split('').reverse().join('').trim();
+  })();
+</script>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+  <script src="/js/nanobar.min.js"></script>
+  <script>
+    var options = {
+      classname: 'nanobar',
+      id: 'myNanobar'
+    };
+    var nanobar = new Nanobar(options);
+    nanobar.go(30);
+    nanobar.go(76);
+    nanobar.go(100);
+  </script>
+
+</body>
+
+</html>

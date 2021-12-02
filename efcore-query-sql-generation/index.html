@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Minima -->
+  <!-- Hexo theme created by @adisaktijrs -->
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+
+  
+  <title>EFCore查询语句生成流程、让EFCore支持批量Update/Delete/MergeInto</title>
+  
+  <link rel="canonical" href="https://www.90yang.com/efcore-query-sql-generation/">
+  
+  <meta name="description" content="引子 之前发现了一款叫 EFCore.BulkExtensions 的 nuget 包。里面提供了大量的 BulkInsertOrUpdateOrDelete 和 BatchUpdate 的拓展，可以很方便的解决批量更新和删除的问题，不用让 EFCore 一条一条的删除和更新。 其中几个比较有用的函">
+  
+  
+  <meta name="author" content="小羊">
+  <meta property="og:site_name" content="小羊儿的心情天空" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="EFCore查询语句生成流程、让EFCore支持批量Update/Delete/MergeInto" />
+  
+  <meta property="og:description" content="引子 之前发现了一款叫 EFCore.BulkExtensions 的 nuget 包。里面提供了大量的 BulkInsertOrUpdateOrDelete 和 BatchUpdate 的拓展，可以很方便的解决批量更新和删除的问题，不用让 EFCore 一条一条的删除和更新。 其中几个比较有用的函">
+  
+  <meta property="og:url" content="https://www.90yang.com/efcore-query-sql-generation/" />
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Preload fonts
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="preload" href="../fonts/dm-serif-display-v4-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/inter-v2-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  
+<link rel="stylesheet" href="/css/normalize.css">
+
+  
+<link rel="stylesheet" href="/css/skeleton.css">
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+  
+<link rel="stylesheet" href="/css/prism-dark.css">
+
+  
+<link rel="stylesheet" href="/css/prism-line-numbers.css">
+
+  <!-- User css -->
+  
+  
+<link rel="stylesheet" href="/css/user.css">
+
+  
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="">
+
+  <!-- Custom Theme Color Style
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <style>
+  a:not(.icon) {
+    text-decoration-color: #0FA0CE;
+    background-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 50%,
+      #0FA0CE 50%
+    );
+  }
+  blockquote {
+    border-left: 8px solid #0FA0CE;
+  }
+  .nanobar .bar {
+    background: #0FA0CE;
+  }
+  .button.button-primary:hover,
+  button.button-primary:hover,
+  input[type="submit"].button-primary:hover,
+  input[type="reset"].button-primary:hover,
+  input[type="button"].button-primary:hover,
+  .button.button-primary:focus,
+  button.button-primary:focus,
+  input[type="submit"].button-primary:focus,
+  input[type="reset"].button-primary:focus,
+  input[type="button"].button-primary:focus {
+    background-color: #0FA0CE;
+    border-color: #0FA0CE;
+  }
+  input[type="email"]:focus,
+  input[type="number"]:focus,
+  input[type="search"]:focus,
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="password"]:focus,
+  textarea:focus,
+  select:focus {
+    border: 1px solid #0FA0CE;
+  }
+</style>
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-math@4.0.0/dist/style.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 5.4.0"></head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div>
+
+        <div class="row">
+  <div class="two columns" style="max-width: 50px">
+    <h1 class="mt-2 mode">
+      <div onclick=setDarkMode(true) id="darkBtn">🌑</div>
+      <div onclick=setDarkMode(false) id="lightBtn" class=hidden>☀️</div>
+      <script >
+        if (localStorage.getItem('preferredTheme') == 'dark') {
+          setDarkMode(true)
+        }
+        function setDarkMode(isDark) {
+          var darkBtn = document.getElementById('darkBtn')
+          var lightBtn = document.getElementById('lightBtn')
+          if (isDark) {
+            lightBtn.style.display = "block"
+            darkBtn.style.display = "none"
+            localStorage.setItem('preferredTheme', 'dark');
+          } else {
+            lightBtn.style.display = "none"
+            darkBtn.style.display = "block"
+            localStorage.removeItem('preferredTheme');
+          }
+          document.body.classList.toggle("darkmode");
+        }
+      </script>
+    </h1>
+  </div>
+
+  <div class="six columns ml-1">
+    <h1 class="mt-2" style="font-weight: 700;">
+      小羊儿的心情天空
+    </h1>
+  </div>
+
+  <div class="twelve columns">
+    <div class="row">
+      <div class="nine columns left">
+        <a href="/">我的博客</a>
+        
+          
+          <a target="_blank" rel="noopener" href="https://www.xylab.fun/" class="ml">我的实验</a>
+          
+        
+          
+          <a href="/links" class="ml">友情链接</a>
+          
+        
+      </div>
+    </div>
+    <hr style="margin-bottom: 2.6rem">
+  </div>
+</div>
+
+        <div class="trans">
+            <h2>EFCore查询语句生成流程、让EFCore支持批量Update/Delete/MergeInto</h2>
+  <p class="mbb-2">Apr 4, 2020 由 小羊</p>
+
+  <h3 id="引子"><a class="markdownIt-Anchor" href="#引子"></a> 引子</h3>
+<p>之前发现了一款叫 EFCore.BulkExtensions 的 nuget 包。里面提供了大量的 BulkInsertOrUpdateOrDelete 和 BatchUpdate 的拓展，可以很方便的解决批量更新和删除的问题，不用让 EFCore 一条一条的删除和更新。</p>
+<p>其中几个比较有用的函数签名是</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token return-type class-name">Task<span class="token punctuation">&lt;</span><span class="token keyword">int</span><span class="token punctuation">></span></span> <span class="token function">BatchDeleteAsync</span><span class="token punctuation">(</span><span class="token keyword">this</span> <span class="token class-name">IQueryable<span class="token punctuation">&lt;</span>T<span class="token punctuation">></span></span> queryable<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token return-type class-name">Task<span class="token punctuation">&lt;</span><span class="token keyword">int</span><span class="token punctuation">></span></span> <span class="token function">BatchUpdateAsync</span><span class="token punctuation">(</span><span class="token keyword">this</span> <span class="token class-name">IQueryable<span class="token punctuation">&lt;</span>T<span class="token punctuation">></span></span> queryable<span class="token punctuation">,</span> <span class="token class-name">Expression<span class="token punctuation">&lt;</span>Func<span class="token punctuation">&lt;</span>T<span class="token punctuation">,</span> T<span class="token punctuation">></span><span class="token punctuation">></span></span> updateExpression<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>但是在升级到 <a target="_blank" rel="noopener" href="http://ASP.NET">ASP.NET</a> Core 3.1 的时候，所有 Where 中的 <code>someArray.Contains(i.Key)</code> 全部挂掉了。而我的程序里用这一语句比较多，遂下载了其源代码并合并了当时作者几个月都没合并的一个PR。</p>
+<p>研究代码，总结了该程序的基本运行过程：</p>
+<ol>
+<li>通过反射获取各种私有变量来访问到 DbContext</li>
+<li>updateExpression 由这个包自己访问表达式树获得</li>
+<li>让 IQueryable 执行 GetEnumerator 让 EFCore 生成对应的 Select 语句，进行字符串拼接</li>
+<li>由 DbContext.Database.ExecuteSqlRaw 来完成语句执行</li>
+</ol>
+<p>但是这过程有几个问题：</p>
+<ol>
+<li>有几种句式 updateExpression 会翻译不了</li>
+<li>由其原来实现的 updateExpression 翻译后的某些参数的 SQL 类型不对</li>
+<li>我需要一个 INSERT INTO SELECT FROM 的句式，它不支持</li>
+<li>我需要一个 upsert 功能，但是原来的 BulkInsertOrUpdate 不能在原表基础上操作</li>
+</ol>
+<p>遂研究 <code>IQueryable.Provider.Execute&lt;T&gt;</code> 是什么执行流程。</p>
+<h3 id="语句生成过程"><a class="markdownIt-Anchor" href="#语句生成过程"></a> 语句生成过程</h3>
+<p>我觉得在翻代码的过程中，有这么一首歌比较符合我的心情：如果你愿意一层一层一层一层的拨开我的心，你会发现，你会讶异，你是我最压抑最深处的秘密。</p>
+<ol>
+<li>调用 <code>QueryCompiler.ExtractParameters</code>，将其中的闭包捕捉变量参数化</li>
+<li>检查是否已经缓存了这个查询表达式，如果没有则转入 <code>QueryCompilationContext</code> 处理，否则转到8</li>
+<li><code>QueryTranslationPreprocessor</code> 处理，在原来的表达式树上先跳舞</li>
+<li><code>QueryableMethodTranslatingExpressionVisitor</code> 将原来的表达式树翻译成一个 <code>ShapedQueryExpression</code>，而这一个表达式则包含了几个部分：<code>SelectExpression</code>、<code>ShaperExpression</code> 和 <code>ResultCardinality</code>。其中前者是可以翻译成 SQL 语句的表达式，中间的是将查询出来的元组映射到实体类型，最后一个是查询的维度（Enumerable、Single、SingleOrDefault）</li>
+<li><code>QueryTranslationPostprocessor</code> 处理，其中比较重要的是将查询的字段加入 SELECT 的 Projection 列表</li>
+<li><code>ShapedQueryCompilingExpressionVisitor</code> 将 <code>ShapedQueryExpression</code> 缓存，并转换成为 <code>IRelationcalCommandCache</code>，然后构造一个 <code>QueryableEnumerable</code> 的 NewExpression。前者包含了该查询语句需要的参数、查询语法树、查询字符串，后者是进行语句执行的类</li>
+<li>将上述 NewExpression 和将 <code>QueryCompilationContext</code> 中的查询参数加到 <code>QueryContext</code> 中的语句合并成为一个代码块，然后 Lambda Compile</li>
+<li>生成 <code>DbCommand</code> 由 <code>IRelationcalCommandCache</code> 获取字符串并加入各种参数进行查询</li>
+</ol>
+<p>翻译结束了，查询到这里也就可以开始了。</p>
+<h3 id="支持批量操作"><a class="markdownIt-Anchor" href="#支持批量操作"></a> 支持批量操作？</h3>
+<p><code>IRelationalCommandCache</code> 是怎么生成字符串的呢？没错，就是 <code>QuerySqlGenerator</code> 啦。</p>
+<p>那么，也就是说，我们能过拿到 Select Expression 的话，一切都好说。</p>
+<p>上述过程中，最后的 <code>IRelationalCommandCache</code> 中会包含这个 <code>SelectExpression</code>。我们可以魔改这个啊！</p>
+<p><strong>DELETE</strong> 语句的生成比较简单。我们构建一个 <code>DeleteExpression</code> 类，将要删除的 Table、删除中的 Predicate、删除个数限制 Limit、原来的一些 Join 全部获取出来，就好了。然后在我们自己继承的 <code>SqlServerQuerySqlGenerator</code> 中实现这个部分。</p>
+<p><strong>INSERT INTO SELECT</strong> 也比较简单，只要构建一个 <code>InsertIntoSelectExpression</code> 类，将要插入的表 Table 和 SelectExpression 保存起来，就好了。</p>
+<p><strong>UPDATE SET</strong> 可能比较麻烦。但是我们可以骚操作啊！将那个 updateExpression 变成 Select 的字段，然后再读取 SelectExpression 中的 ProjectionExpression 不就好了吗~我真是个小天才。</p>
+<p><strong>MERGE INTO</strong> 是最烦的，因为结构过于复杂，涉及到 Target、Source、JoinPredicate、Limit、Matched、NotMatchedByTarget、NotMatchedBySource。过程中还要实现一些表的更名之类的。目前我只是实现了这些，但是想做出 <code>Matched When</code> 功能以后再发布到 nuget 上，这个实现实在是过于复杂，不知道有没有人帮帮我啊 TAT。</p>
+<p>由于翻译 <code>SqlExpression</code> 最方便还是基于 <code>QuerySqlGenerator</code> 操作，所以就写一个 <code>EnhancedQuerySqlGenerator</code> 类来满足我们的需求，并在 DbContextOptionsBuilder 那边将这个 Factory 替换掉。</p>
+<p>实现了这些，GitHub 地址：<a target="_blank" rel="noopener" href="https://github.com/yang-er/EFCore.BulkExtensions">Microsoft.EntityFrameworkCore.Bulk</a>，可以在 github packages 上下载目前版本的 nuget 包。</p>
+<p>另外 <code>src/Internal/TranslationGoThrough.cs</code> 中有上述语句生成过程的一个缩影，和系统版本几乎一致，唯一不同的是修改了 <code>ExtractParameters</code> 函数。</p>
+<p>因为原来的 Extract 过程有一个事情很诡异：在生成参数的时候，我们可以进行一些本地执行，但是如果不阻止某些本地执行程的话，可能会导致 UPDATE 语句的字段全部空。例如 updateExpression 中没有利用到原表的参数并且不捕捉闭包变量的时候，那么不会被本地执行，但是如果没有利用到原表的参数还捕捉闭包变量的时候，它就会被直接本地执行，字段空啦~（确实不懂他们这段代码逻辑怎么写的，你生成查询的时候优化这个的话，怎么不把前面一个也优化掉啊……</p>
+
+  <p></p>
+  
+
+
+          <div class="row mt-2">
+  
+    <div class="eight columns">
+      <p id="madewith">
+        <a class="footer-link" href="https://hexo.io" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="Hexo.io">自豪地采用Hexo<!--和https://github.com/adisaktijrs/hexo-theme-minima/--></a>
+        |
+        <a class="footer-link" href="http://www.beian.miit.gov.cn/" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="工信部备案">皖ICP备17014812号-1</a>
+    </div>
+
+    <!-- Sepcial thanks to https://simpleicons.org/ for the icons -->
+    <div class="four columns mb-3 posisi" >
+      
+      <a class="ml-0 footer-link icon" href="https://github.com/yang-er" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="GitHub">
+        <svg class="github svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      </a>
+      
+
+      
+      <a class="ml-0 footer-link icon" href="https://www.linkedin.com/in/%E8%89%AF%E6%AD%A3-%E6%9D%A8-0810451a4/" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="LinkedIn">
+        <svg class="linkedin svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>LinkedIn</title><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      
+
+      
+
+      
+      <a class="ml-0 footer-link icon" id="mailuna" href="#" data-anuliam="tFWasR3b6kGQ5Fmbn1SZy5yYv1GI" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="Email">
+        <svg class="mailru svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Mail</title><path d="M15.61 12c0 1.99-1.62 3.61-3.61 3.61-1.99 0-3.61-1.62-3.61-3.61 0-1.99 1.62-3.61 3.61-3.61 1.99 0 3.61 1.62 3.61 3.61M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12c2.424 0 4.761-.722 6.76-2.087l.034-.024-1.617-1.879-.027.017A9.494 9.494 0 0 1 12 21.54c-5.26 0-9.54-4.28-9.54-9.54 0-5.26 4.28-9.54 9.54-9.54 5.26 0 9.54 4.28 9.54 9.54a9.63 9.63 0 0 1-.225 2.05c-.301 1.239-1.169 1.618-1.82 1.568-.654-.053-1.42-.52-1.426-1.661V12A6.076 6.076 0 0 0 12 5.93 6.076 6.076 0 0 0 5.93 12 6.076 6.076 0 0 0 12 18.07a6.02 6.02 0 0 0 4.3-1.792 3.9 3.9 0 0 0 3.32 1.805c.874 0 1.74-.292 2.437-.821.719-.547 1.256-1.336 1.553-2.285.047-.154.135-.504.135-.507l.002-.013c.175-.76.253-1.52.253-2.457 0-6.617-5.383-12-12-12"/></svg>
+      </a>
+      
+
+    </div>
+  
+</div>
+
+<script>
+  (function () {
+    const mailuna = document.getElementById('mailuna');
+    const real = mailuna.attributes['data-anuliam'].value.split('').reverse().join('');
+    mailuna.href = atob(real).split('').reverse().join('').trim();
+  })();
+</script>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+  <script src="/js/nanobar.min.js"></script>
+  <script>
+    var options = {
+      classname: 'nanobar',
+      id: 'myNanobar'
+    };
+    var nanobar = new Nanobar(options);
+    nanobar.go(30);
+    nanobar.go(76);
+    nanobar.go(100);
+  </script>
+
+</body>
+
+</html>

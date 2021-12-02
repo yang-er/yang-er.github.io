@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Minima -->
+  <!-- Hexo theme created by @adisaktijrs -->
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+
+  
+  <title>ASP.NET Core 修改 EndpointRouting 的链接生成行为</title>
+  
+  <link rel="canonical" href="https://www.90yang.com/asp-net-core-endpointrouting-link-generation-hack/">
+  
+  <meta name="description" content="微软在 ASP.NET Core 2.2 时期引入了 EndpointRouting，并且在之后的 3.0 / 3.1 进行了很多的升级改造。我前段时间刚刚把网站升级到了 3.1，之前一直在使用 2.1 的兼容模式，并且内部有很多的属性路由的配置，而没有使用 DefaultRoute 那条规则。按照">
+  
+  
+  <meta name="author" content="小羊">
+  <meta property="og:site_name" content="小羊儿的心情天空" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="ASP.NET Core 修改 EndpointRouting 的链接生成行为" />
+  
+  <meta property="og:description" content="微软在 ASP.NET Core 2.2 时期引入了 EndpointRouting，并且在之后的 3.0 / 3.1 进行了很多的升级改造。我前段时间刚刚把网站升级到了 3.1，之前一直在使用 2.1 的兼容模式，并且内部有很多的属性路由的配置，而没有使用 DefaultRoute 那条规则。按照">
+  
+  <meta property="og:url" content="https://www.90yang.com/asp-net-core-endpointrouting-link-generation-hack/" />
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Preload fonts
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="preload" href="../fonts/dm-serif-display-v4-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/inter-v2-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  
+<link rel="stylesheet" href="/css/normalize.css">
+
+  
+<link rel="stylesheet" href="/css/skeleton.css">
+
+  
+<link rel="stylesheet" href="/css/custom.css">
+
+  
+<link rel="stylesheet" href="/css/prism-dark.css">
+
+  
+<link rel="stylesheet" href="/css/prism-line-numbers.css">
+
+  <!-- User css -->
+  
+  
+<link rel="stylesheet" href="/css/user.css">
+
+  
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="">
+
+  <!-- Custom Theme Color Style
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <style>
+  a:not(.icon) {
+    text-decoration-color: #0FA0CE;
+    background-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 50%,
+      #0FA0CE 50%
+    );
+  }
+  blockquote {
+    border-left: 8px solid #0FA0CE;
+  }
+  .nanobar .bar {
+    background: #0FA0CE;
+  }
+  .button.button-primary:hover,
+  button.button-primary:hover,
+  input[type="submit"].button-primary:hover,
+  input[type="reset"].button-primary:hover,
+  input[type="button"].button-primary:hover,
+  .button.button-primary:focus,
+  button.button-primary:focus,
+  input[type="submit"].button-primary:focus,
+  input[type="reset"].button-primary:focus,
+  input[type="button"].button-primary:focus {
+    background-color: #0FA0CE;
+    border-color: #0FA0CE;
+  }
+  input[type="email"]:focus,
+  input[type="number"]:focus,
+  input[type="search"]:focus,
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  input[type="url"]:focus,
+  input[type="password"]:focus,
+  textarea:focus,
+  select:focus {
+    border: 1px solid #0FA0CE;
+  }
+</style>
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-math@4.0.0/dist/style.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 5.4.0"></head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div>
+
+        <div class="row">
+  <div class="two columns" style="max-width: 50px">
+    <h1 class="mt-2 mode">
+      <div onclick=setDarkMode(true) id="darkBtn">🌑</div>
+      <div onclick=setDarkMode(false) id="lightBtn" class=hidden>☀️</div>
+      <script >
+        if (localStorage.getItem('preferredTheme') == 'dark') {
+          setDarkMode(true)
+        }
+        function setDarkMode(isDark) {
+          var darkBtn = document.getElementById('darkBtn')
+          var lightBtn = document.getElementById('lightBtn')
+          if (isDark) {
+            lightBtn.style.display = "block"
+            darkBtn.style.display = "none"
+            localStorage.setItem('preferredTheme', 'dark');
+          } else {
+            lightBtn.style.display = "none"
+            darkBtn.style.display = "block"
+            localStorage.removeItem('preferredTheme');
+          }
+          document.body.classList.toggle("darkmode");
+        }
+      </script>
+    </h1>
+  </div>
+
+  <div class="six columns ml-1">
+    <h1 class="mt-2" style="font-weight: 700;">
+      小羊儿的心情天空
+    </h1>
+  </div>
+
+  <div class="twelve columns">
+    <div class="row">
+      <div class="nine columns left">
+        <a href="/">我的博客</a>
+        
+          
+          <a target="_blank" rel="noopener" href="https://www.xylab.fun/" class="ml">我的实验</a>
+          
+        
+          
+          <a href="/links" class="ml">友情链接</a>
+          
+        
+      </div>
+    </div>
+    <hr style="margin-bottom: 2.6rem">
+  </div>
+</div>
+
+        <div class="trans">
+            <h2>ASP.NET Core 修改 EndpointRouting 的链接生成行为</h2>
+  <p class="mbb-2">Mar 2, 2020 由 小羊</p>
+
+  <p>微软在 <a target="_blank" rel="noopener" href="http://ASP.NET">ASP.NET</a> Core 2.2 时期引入了 EndpointRouting，并且在之后的 3.0 / 3.1 进行了很多的升级改造。我前段时间刚刚把网站升级到了 3.1，之前一直在使用 2.1 的兼容模式，并且内部有很多的属性路由的配置，而没有使用 DefaultRoute 那条规则。按照官方的文档将 UseMvc 那套替换成了 EndpointRouting 那一套。然后发现，很多的链接生成出了问题。</p>
+<p>由于之前略微读过 <a target="_blank" rel="noopener" href="https://github.com/dotnet/aspnetcore/blob/release/3.1/src/Mvc/Mvc.TagHelpers/src/AnchorTagHelper.cs">AnchorTagHelper</a> 的源码，大约知道问题出在了 UrlHelper 身上，将。随后发现， 在使用终结点路由后，UrlHelper 的实现类型变成了 <a target="_blank" rel="noopener" href="https://github.com/dotnet/aspnetcore/blob/release/3.1/src/Mvc/Mvc.Core/src/Routing/EndpointRoutingUrlHelper.cs">EndpointRoutingUrlHelper</a>。而后者则在内部调用了 LinkGenerator，其默认实现为 <a target="_blank" rel="noopener" href="https://github.com/dotnet/aspnetcore/blob/release/3.1/src/Http/Routing/src/DefaultLinkGenerator.cs">DefaultLinkGenerator</a>。</p>
+<p>LinkGenerator 的实现使用到了几个比较重要的对象：EndpointDataSource 是所有终结点的集合，TemplateBinderFactory 是根据终结点的 RoutePattern 生成 TemplateBinder 的工厂，TemplateBinder 是一个保存了 RoutePattern 内部信息（例如默认RouteValues、链接模板）并提供实际链接生成的工具。由于微软在这方面的代码编写中全都 internal 了，且代码中注释较少，在接下来我将介绍他们的基本工作流程，并给出一个能够基本做到“兼容”、不修改太多代码的方法。此处的解释仅仅针对属性路由。</p>
+<h2 id="寻找终结点"><a class="markdownIt-Anchor" href="#寻找终结点"></a> 寻找终结点</h2>
+<p>请关注 <code>GetEndpoints&lt;TAddress&gt;(TAddress address)</code> 函数。此处，TAddress 取值有两种：string、RouteValuesAddress。</p>
+<p>当 TAddress 为 string 时，请回顾 RouteAttribute 中的 Name 属性。没错就是这个，在 anchor 链接使用 asp-route=“something” 的时候，路由的查找是根据此处进行的。在生成终结点时，程序已经确保了所有的 RouteName 都唯一。查找直接找字典就好了。</p>
+<p>当 TAddress 为 RouteValuesAddress 时，是使用 asp-area、asp-controller、asp-page、asp-action、asp-route-xxx 时进行的寻址方式。此 Address 由三个部分组成，其中包括 RouteName、ExplicitValues、AmbientValues。根据 RoutePattern 中的 RequiredValues 来检查 ExplicitValues 和 AmbientValues 的值。</p>
+<p>结束后返回一个终结点列表，其中包含可能匹配的结果。我们针对每个可能的终结点，尝试匹配路由模板。</p>
+<h2 id="尝试匹配路由模板"><a class="markdownIt-Anchor" href="#尝试匹配路由模板"></a> 尝试匹配路由模板</h2>
+<p>生成一个 <a target="_blank" rel="noopener" href="https://github.com/dotnet/aspnetcore/blob/release/3.1/src/Http/Routing/src/Template/TemplateBinder.cs">TemplateBinder</a>，这个对象提供三个函数：GetValues、TryProcessConstraints、TryBindValues。</p>
+<p>GetValues 会根据 RoutePattern 和两种 RouteValue 生成一个最终匹配列表，使用了 Ambient Values Invalidation Algorithm，在接下来介绍。</p>
+<p>TryProcessConstraints 是根据上方匹配，检查是否满足路由值的限制。</p>
+<p>TryBindValues 是将获取的 RouteValues 生成最后的终结点链接。</p>
+<h2 id="隐式路由值失效算法"><a class="markdownIt-Anchor" href="#隐式路由值失效算法"></a> 隐式路由值失效算法</h2>
+<p>首先介绍几个字段，在接下来会被算法使用到。</p>
+<ul>
+<li>
+<p>_slots 是一个 KVP&lt;string, object&gt;，其 Key 为路由值的名称，Value 为 null。其中前几个字段依次是 pattern 的参数，后几个字段是filter默认值。</p>
+</li>
+<li>
+<p>_requiredKeys 是一个 string 数组，是以 RoutePattern 的字段中提取的。</p>
+</li>
+<li>
+<p>_defaults 是默认路由值的字典。</p>
+</li>
+<li>
+<p>_pattern 是 RoutePattern。</p>
+</li>
+<li>
+<p>ambientValues 是目前页面的路由值字典。</p>
+</li>
+<li>
+<p>values 是即将导航的页面的路由值字典，一般由asp-action等等计算得到。</p>
+</li>
+</ul>
+<p>最开始会将“需要填的空格”复制一份，以供本次计算使用。</p>
+<ul>
+<li>
+<p>首先将所有需要填的空在 values 中寻找一遍，决定使用该值或者 explicit null 值。</p>
+</li>
+<li>
+<p>考虑针对每个 requiredKeys 是否继续复制隐式路由值。</p>
+<ul>
+<li>如果 ambientValues 为空引用，那么不复制。</li>
+<li>对于每一个在上一步中确定的显式值，检查和隐式路由值是否相同。检查过程会考虑值相等、any值匹配、显式null值。</li>
+</ul>
+</li>
+<li>
+<p>对于每一个路由参数，检查是否存在显式值、隐式值。</p>
+<ul>
+<li>如果还可以复制隐式值，那么检查此处的显式和隐式值是否匹配。如果不匹配，那么不再复制后面的隐式值。</li>
+<li>如果不能再复制隐式值，并且没有显式值，但它确实是路由需要的值，而且存在隐式值，并且和要求的值相等，那么使用它。</li>
+<li>如果在以上两种情况中匹配成功，那么将它加入 accepted 匹配成功的路由字典。</li>
+<li>如果是可选参数或者通配参数，那么将它从路由字典中忽略。</li>
+<li>如果没有匹配但是有默认值，那么使用默认值。</li>
+<li>以上过程均没有对应的话，认为此Endpoint匹配失败，不适用于此结果。</li>
+</ul>
+</li>
+<li>
+<p>对每个filter字段进行检查。</p>
+<ul>
+<li>如果存在显式值，检查两者是否相等，如果不相等那么就是匹配失败</li>
+<li>如果不存在显式值，那么不加入 accepted 匹配成功的路由字典。</li>
+</ul>
+</li>
+<li>
+<p>如果存在没有处理的显式值，加入 combined 合并后的路由字典。</p>
+</li>
+<li>
+<p>对于一些非参数的隐式值，需要加入到 combined 字典，这样可以对路由限制可见。</p>
+</li>
+</ul>
+<h2 id="破坏的部分"><a class="markdownIt-Anchor" href="#破坏的部分"></a> 破坏的部分</h2>
+<p>以上对于 <code>/[area]/&#123;area_id&#125;/[controller]/[action]</code> 非常的不友好。</p>
+<p>可以通过将该 TemplateBinder 的 _requiredValues 清空来达到这一点操作。但是这是 readonly 的 private 字段，所以使用反射解决。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">using</span> <span class="token namespace">Microsoft<span class="token punctuation">.</span>AspNetCore<span class="token punctuation">.</span>Http</span><span class="token punctuation">;</span>
+<span class="token keyword">using</span> <span class="token namespace">Microsoft<span class="token punctuation">.</span>AspNetCore<span class="token punctuation">.</span>Routing<span class="token punctuation">.</span>Template</span><span class="token punctuation">;</span>
+<span class="token keyword">using</span> <span class="token namespace">Microsoft<span class="token punctuation">.</span>Extensions<span class="token punctuation">.</span>Logging</span><span class="token punctuation">;</span>
+<span class="token keyword">using</span> <span class="token namespace">Microsoft<span class="token punctuation">.</span>Extensions<span class="token punctuation">.</span>Options</span><span class="token punctuation">;</span>
+<span class="token keyword">using</span> <span class="token namespace">System</span><span class="token punctuation">;</span>
+<span class="token keyword">using</span> <span class="token namespace">System<span class="token punctuation">.</span>Linq</span><span class="token punctuation">;</span>
+<span class="token keyword">using</span> <span class="token namespace">System<span class="token punctuation">.</span>Linq<span class="token punctuation">.</span>Expressions</span><span class="token punctuation">;</span>
+<span class="token keyword">using</span> <span class="token namespace">System<span class="token punctuation">.</span>Reflection</span><span class="token punctuation">;</span>
+
+<span class="token keyword">namespace</span> <span class="token namespace">Microsoft<span class="token punctuation">.</span>AspNetCore<span class="token punctuation">.</span>Routing</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token keyword">public</span> <span class="token keyword">sealed</span> <span class="token keyword">class</span> <span class="token class-name">OrderLinkGenerator</span> <span class="token punctuation">:</span> <span class="token type-list"><span class="token class-name">LinkGenerator</span><span class="token punctuation">,</span> <span class="token class-name">IDisposable</span></span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token keyword">private</span> <span class="token keyword">readonly</span> <span class="token class-name">LinkGenerator</span> inner<span class="token punctuation">;</span>
+        <span class="token keyword">private</span> <span class="token keyword">readonly</span> <span class="token class-name">TemplateBinderFactory</span> _binderFactory<span class="token punctuation">;</span>
+        <span class="token keyword">private</span> <span class="token keyword">readonly</span> <span class="token class-name">Func<span class="token punctuation">&lt;</span>RouteEndpoint<span class="token punctuation">,</span> TemplateBinder<span class="token punctuation">></span></span> _createTemplateBinder<span class="token punctuation">;</span>
+        <span class="token keyword">private</span> <span class="token keyword">readonly</span> <span class="token class-name">FieldInfo</span> _requiredKeys<span class="token punctuation">;</span>
+        <span class="token keyword">const</span> <span class="token class-name"><span class="token keyword">string</span></span> typeName <span class="token operator">=</span> <span class="token string">"Microsoft.AspNetCore.Routing.DefaultLinkGenerator"</span><span class="token punctuation">;</span>
+        <span class="token keyword">internal</span> <span class="token keyword">static</span> <span class="token class-name">Type</span> typeInner<span class="token punctuation">;</span>
+
+        <span class="token keyword">public</span> <span class="token function">OrderLinkGenerator</span><span class="token punctuation">(</span>
+            <span class="token class-name">ParameterPolicyFactory</span> parameterPolicyFactory<span class="token punctuation">,</span>
+            <span class="token class-name">TemplateBinderFactory</span> binderFactory<span class="token punctuation">,</span>
+            <span class="token class-name">EndpointDataSource</span> dataSource<span class="token punctuation">,</span>
+            <span class="token class-name">IOptions<span class="token punctuation">&lt;</span>RouteOptions<span class="token punctuation">></span></span> routeOptions<span class="token punctuation">,</span>
+            <span class="token class-name">IServiceProvider</span> serviceProvider<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>typeInner<span class="token punctuation">.</span>FullName <span class="token operator">!=</span> typeName<span class="token punctuation">)</span>
+                <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name">NotImplementedException</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token class-name"><span class="token keyword">var</span></span> logger <span class="token operator">=</span> serviceProvider<span class="token punctuation">.</span><span class="token function">GetService</span><span class="token punctuation">(</span><span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">ILogger<span class="token punctuation">&lt;</span><span class="token punctuation">></span></span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">MakeGenericType</span><span class="token punctuation">(</span>typeInner<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token class-name"><span class="token keyword">var</span></span> autoFlag <span class="token operator">=</span> BindingFlags<span class="token punctuation">.</span>NonPublic <span class="token operator">|</span> BindingFlags<span class="token punctuation">.</span>Instance<span class="token punctuation">;</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> args <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token constructor-invocation class-name"><span class="token keyword">object</span><span class="token punctuation">[</span><span class="token punctuation">]</span></span>
+            <span class="token punctuation">&#123;</span>
+                parameterPolicyFactory<span class="token punctuation">,</span>
+                binderFactory<span class="token punctuation">,</span>
+                dataSource<span class="token punctuation">,</span>
+                routeOptions<span class="token punctuation">,</span>
+                logger<span class="token punctuation">,</span>
+                serviceProvider
+            <span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> ctorInfo <span class="token operator">=</span> typeInner<span class="token punctuation">.</span><span class="token function">GetConstructors</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+            <span class="token class-name"><span class="token keyword">var</span></span> newExp <span class="token operator">=</span> Expression<span class="token punctuation">.</span><span class="token function">New</span><span class="token punctuation">(</span>ctorInfo<span class="token punctuation">,</span> args<span class="token punctuation">.</span><span class="token function">Select</span><span class="token punctuation">(</span>o <span class="token operator">=></span> Expression<span class="token punctuation">.</span><span class="token function">Constant</span><span class="token punctuation">(</span>o<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token class-name"><span class="token keyword">var</span></span> ctor <span class="token operator">=</span> Expression<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">Lambda</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>Func<span class="token punctuation">&lt;</span>LinkGenerator<span class="token punctuation">></span><span class="token punctuation">></span></span></span><span class="token punctuation">(</span>newExp<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            inner <span class="token operator">=</span> <span class="token function">ctor</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            _binderFactory <span class="token operator">=</span> binderFactory<span class="token punctuation">;</span>
+            _createTemplateBinder <span class="token operator">=</span> CreateTemplateBinder<span class="token punctuation">;</span>
+            <span class="token class-name"><span class="token keyword">var</span></span> fieldInfo <span class="token operator">=</span> typeInner<span class="token punctuation">.</span><span class="token function">GetField</span><span class="token punctuation">(</span><span class="token keyword">nameof</span><span class="token punctuation">(</span>_createTemplateBinder<span class="token punctuation">)</span><span class="token punctuation">,</span> autoFlag<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            fieldInfo<span class="token punctuation">.</span><span class="token function">SetValue</span><span class="token punctuation">(</span>inner<span class="token punctuation">,</span> _createTemplateBinder<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            _requiredKeys <span class="token operator">=</span> <span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">TemplateBinder</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">GetField</span><span class="token punctuation">(</span><span class="token keyword">nameof</span><span class="token punctuation">(</span>_requiredKeys<span class="token punctuation">)</span><span class="token punctuation">,</span> autoFlag<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">private</span> <span class="token return-type class-name">TemplateBinder</span> <span class="token function">CreateTemplateBinder</span><span class="token punctuation">(</span><span class="token class-name">RouteEndpoint</span> endpoint<span class="token punctuation">)</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token comment">/*
+             * The following code section is disabled
+             * for its change to RoutePattern may cause
+             * errors.
+             * 
+             * var rawText = endpoint.RoutePattern.RawText;
+             * var rv = endpoint.RoutePattern.RequiredValues as RouteValueDictionary;
+             *
+             * if (rawText != null)
+             * &#123;
+             *     var m = Regex.Matches(rawText, "\\&#123;(\\w+)\\&#125;");
+             *     for (int i = 0; i &lt; m.Count; i++)
+             *         rv.Add(m[i].Value.TrimStart('&#123;').TrimEnd('&#125;'), RoutePattern.RequiredValueAny);
+             * &#125;
+             * 
+             * A better solution is to disable the _requiredKeys.
+             */</span>
+
+            <span class="token class-name"><span class="token keyword">var</span></span> binder <span class="token operator">=</span> _binderFactory<span class="token punctuation">.</span><span class="token function">Create</span><span class="token punctuation">(</span>endpoint<span class="token punctuation">.</span>RoutePattern<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            _requiredKeys<span class="token punctuation">.</span><span class="token function">SetValue</span><span class="token punctuation">(</span>binder<span class="token punctuation">,</span> Array<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">Empty</span><span class="token generic class-name"><span class="token punctuation">&lt;</span><span class="token keyword">string</span><span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span> binder<span class="token punctuation">;</span>
+        <span class="token punctuation">&#125;</span>
+
+        <span class="token keyword">public</span> <span class="token keyword">override</span> <span class="token return-type class-name"><span class="token keyword">string</span></span> <span class="token generic-method"><span class="token function">GetPathByAddress</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TAddress<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">HttpContext</span> httpContext<span class="token punctuation">,</span> <span class="token class-name">TAddress</span> address<span class="token punctuation">,</span> <span class="token class-name">RouteValueDictionary</span> values<span class="token punctuation">,</span> <span class="token class-name">RouteValueDictionary</span> ambientValues <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token class-name">PathString<span class="token punctuation">?</span></span> pathBase <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token class-name">FragmentString</span> fragment <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">,</span> <span class="token class-name">LinkOptions</span> options <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token operator">=></span>
+            inner<span class="token punctuation">.</span><span class="token function">GetPathByAddress</span><span class="token punctuation">(</span>httpContext<span class="token punctuation">,</span> address<span class="token punctuation">,</span> values<span class="token punctuation">,</span> ambientValues<span class="token punctuation">,</span> pathBase<span class="token punctuation">,</span> fragment<span class="token punctuation">,</span> options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">public</span> <span class="token keyword">override</span> <span class="token return-type class-name"><span class="token keyword">string</span></span> <span class="token generic-method"><span class="token function">GetPathByAddress</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TAddress<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">TAddress</span> address<span class="token punctuation">,</span> <span class="token class-name">RouteValueDictionary</span> values<span class="token punctuation">,</span> <span class="token class-name">PathString</span> pathBase <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">,</span> <span class="token class-name">FragmentString</span> fragment <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">,</span> <span class="token class-name">LinkOptions</span> options <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token operator">=></span>
+            inner<span class="token punctuation">.</span><span class="token function">GetPathByAddress</span><span class="token punctuation">(</span>address<span class="token punctuation">,</span> values<span class="token punctuation">,</span> pathBase<span class="token punctuation">,</span> fragment<span class="token punctuation">,</span> options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">public</span> <span class="token keyword">override</span> <span class="token return-type class-name"><span class="token keyword">string</span></span> <span class="token generic-method"><span class="token function">GetUriByAddress</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TAddress<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">HttpContext</span> httpContext<span class="token punctuation">,</span> <span class="token class-name">TAddress</span> address<span class="token punctuation">,</span> <span class="token class-name">RouteValueDictionary</span> values<span class="token punctuation">,</span> <span class="token class-name">RouteValueDictionary</span> ambientValues <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token class-name"><span class="token keyword">string</span></span> scheme <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token class-name">HostString<span class="token punctuation">?</span></span> host <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token class-name">PathString<span class="token punctuation">?</span></span> pathBase <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">,</span> <span class="token class-name">FragmentString</span> fragment <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">,</span> <span class="token class-name">LinkOptions</span> options <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token operator">=></span>
+            inner<span class="token punctuation">.</span><span class="token function">GetUriByAddress</span><span class="token punctuation">(</span>httpContext<span class="token punctuation">,</span> address<span class="token punctuation">,</span> values<span class="token punctuation">,</span> ambientValues<span class="token punctuation">,</span> scheme<span class="token punctuation">,</span> host<span class="token punctuation">,</span> pathBase<span class="token punctuation">,</span> fragment<span class="token punctuation">,</span> options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">public</span> <span class="token keyword">override</span> <span class="token return-type class-name"><span class="token keyword">string</span></span> <span class="token generic-method"><span class="token function">GetUriByAddress</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>TAddress<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token class-name">TAddress</span> address<span class="token punctuation">,</span> <span class="token class-name">RouteValueDictionary</span> values<span class="token punctuation">,</span> <span class="token class-name"><span class="token keyword">string</span></span> scheme<span class="token punctuation">,</span> <span class="token class-name">HostString</span> host<span class="token punctuation">,</span> <span class="token class-name">PathString</span> pathBase <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">,</span> <span class="token class-name">FragmentString</span> fragment <span class="token operator">=</span> <span class="token keyword">default</span><span class="token punctuation">,</span> <span class="token class-name">LinkOptions</span> options <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token operator">=></span>
+            inner<span class="token punctuation">.</span><span class="token function">GetUriByAddress</span><span class="token punctuation">(</span>address<span class="token punctuation">,</span> values<span class="token punctuation">,</span> scheme<span class="token punctuation">,</span> host<span class="token punctuation">,</span> pathBase<span class="token punctuation">,</span> fragment<span class="token punctuation">,</span> options<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">public</span> <span class="token return-type class-name"><span class="token keyword">void</span></span> <span class="token function">Dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">(</span><span class="token punctuation">(</span>IDisposable<span class="token punctuation">)</span>inner<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">Dispose</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>最后在依赖注入容器中替换即可。</p>
+<pre class="line-numbers language-csharp" data-language="csharp"><code class="language-csharp"><span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token return-type class-name">IMvcBuilder</span> <span class="token function">ReplaceLinkGenerator</span><span class="token punctuation">(</span><span class="token keyword">this</span> <span class="token class-name">IMvcBuilder</span> mvc<span class="token punctuation">)</span>
+<span class="token punctuation">&#123;</span>
+    <span class="token class-name"><span class="token keyword">var</span></span> old <span class="token operator">=</span> mvc<span class="token punctuation">.</span>Services<span class="token punctuation">.</span><span class="token function">FirstOrDefault</span><span class="token punctuation">(</span>s <span class="token operator">=></span> s<span class="token punctuation">.</span>ServiceType <span class="token operator">==</span> <span class="token keyword">typeof</span><span class="token punctuation">(</span><span class="token type-expression class-name">LinkGenerator</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    OrderLinkGenerator<span class="token punctuation">.</span>typeInner <span class="token operator">=</span> old<span class="token punctuation">.</span>ImplementationType<span class="token punctuation">;</span>
+    mvc<span class="token punctuation">.</span>Services<span class="token punctuation">.</span><span class="token function">Replace</span><span class="token punctuation">(</span>ServiceDescriptor<span class="token punctuation">.</span><span class="token generic-method"><span class="token function">Singleton</span><span class="token generic class-name"><span class="token punctuation">&lt;</span>LinkGenerator<span class="token punctuation">,</span> OrderLinkGenerator<span class="token punctuation">></span></span></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> mvc<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+  <p></p>
+  
+
+
+          <div class="row mt-2">
+  
+    <div class="eight columns">
+      <p id="madewith">
+        <a class="footer-link" href="https://hexo.io" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="Hexo.io">自豪地采用Hexo<!--和https://github.com/adisaktijrs/hexo-theme-minima/--></a>
+        |
+        <a class="footer-link" href="http://www.beian.miit.gov.cn/" target="_blank" style="text-decoration: none;" rel="noreferrer" aria-label="工信部备案">皖ICP备17014812号-1</a>
+    </div>
+
+    <!-- Sepcial thanks to https://simpleicons.org/ for the icons -->
+    <div class="four columns mb-3 posisi" >
+      
+      <a class="ml-0 footer-link icon" href="https://github.com/yang-er" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="GitHub">
+        <svg class="github svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+      </a>
+      
+
+      
+      <a class="ml-0 footer-link icon" href="https://www.linkedin.com/in/%E8%89%AF%E6%AD%A3-%E6%9D%A8-0810451a4/" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="LinkedIn">
+        <svg class="linkedin svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>LinkedIn</title><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      
+
+      
+
+      
+      <a class="ml-0 footer-link icon" id="mailuna" href="#" data-anuliam="tFWasR3b6kGQ5Fmbn1SZy5yYv1GI" target="_blank" style="text-decoration: none" rel="noreferrer" aria-label="Email">
+        <svg class="mailru svg-hov" width="18" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Mail</title><path d="M15.61 12c0 1.99-1.62 3.61-3.61 3.61-1.99 0-3.61-1.62-3.61-3.61 0-1.99 1.62-3.61 3.61-3.61 1.99 0 3.61 1.62 3.61 3.61M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12c2.424 0 4.761-.722 6.76-2.087l.034-.024-1.617-1.879-.027.017A9.494 9.494 0 0 1 12 21.54c-5.26 0-9.54-4.28-9.54-9.54 0-5.26 4.28-9.54 9.54-9.54 5.26 0 9.54 4.28 9.54 9.54a9.63 9.63 0 0 1-.225 2.05c-.301 1.239-1.169 1.618-1.82 1.568-.654-.053-1.42-.52-1.426-1.661V12A6.076 6.076 0 0 0 12 5.93 6.076 6.076 0 0 0 5.93 12 6.076 6.076 0 0 0 12 18.07a6.02 6.02 0 0 0 4.3-1.792 3.9 3.9 0 0 0 3.32 1.805c.874 0 1.74-.292 2.437-.821.719-.547 1.256-1.336 1.553-2.285.047-.154.135-.504.135-.507l.002-.013c.175-.76.253-1.52.253-2.457 0-6.617-5.383-12-12-12"/></svg>
+      </a>
+      
+
+    </div>
+  
+</div>
+
+<script>
+  (function () {
+    const mailuna = document.getElementById('mailuna');
+    const real = mailuna.attributes['data-anuliam'].value.split('').reverse().join('');
+    mailuna.href = atob(real).split('').reverse().join('').trim();
+  })();
+</script>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+  <script src="/js/nanobar.min.js"></script>
+  <script>
+    var options = {
+      classname: 'nanobar',
+      id: 'myNanobar'
+    };
+    var nanobar = new Nanobar(options);
+    nanobar.go(30);
+    nanobar.go(76);
+    nanobar.go(100);
+  </script>
+
+</body>
+
+</html>
